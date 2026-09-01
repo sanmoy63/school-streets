@@ -1,0 +1,5 @@
+# Normalise line endings so the repo does not appear wholly modified
+# when checked out on a different platform.
+* text=auto eol=lf
+*.png binary
+*.gpkg binary

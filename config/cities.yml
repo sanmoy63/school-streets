@@ -1,0 +1,148 @@
+# ROUTES pilot cities + observer cities.
+#
+# `place` strings are resolved through OSM Nominatim. `epsg` is the projected CRS
+# used for all metric operations (buffers, lengths, densities) in that city --
+# never compute distances in EPSG:4326.
+#
+# `status` distinguishes the four living-lab pilots (where ROUTES will run
+# interventions) from observer cities, which are carried through the pipeline as
+# an out-of-sample check on whether the indicators transfer.
+
+pilots:
+  rotterdam:
+    place: "Rotterdam, Netherlands"
+    country: NL
+    epsg: 28992          # Amersfoort / RD New
+    status: pilot
+    notes: "Richest open-data environment of the four; used as the reference implementation."
+
+  espoo:
+    place: "Espoo, Finland"
+    country: FI
+    epsg: 3067           # ETRS89 / TM35FIN
+    status: pilot
+    notes: "HSL publishes high-quality open GTFS; good second case for temporal indicators."
+
+  bratislava:
+    place: "Bratislava, Slovakia"
+    country: SK
+    epsg: 8353           # S-JTSK [JTSK03] / Krovak East North
+    status: pilot
+    notes: "OSM sidewalk tagging is sparser; expect harmonisation loss on walkway indicators."
+
+  tirana:
+    place: "Tirana, Albania"
+    country: AL
+    epsg: 6870           # ETRS89 / Albania TM 2010
+    status: pilot
+    notes: >
+      Non-EU-member; Copernicus Urban Atlas and national crash/registry data are
+      likely unavailable. This is the binding constraint on cross-site
+      harmonisation and is treated as a result, not a gap to be silently dropped.
+
+observers:
+  braga:
+    place: "Braga, Portugal"
+    country: PT
+    epsg: 3763
+    status: observer
+  lund:
+    place: "Lund, Sweden"
+    country: SE
+    epsg: 3006
+    status: observer
+  nantes:
+    place: "Nantes, France"
+    country: FR
+    epsg: 2154
+    status: observer
+  kocaeli:
+    place: "Kocaeli, Turkey"
+    country: TR
+    epsg: 5255
+    status: observer
+
+# ---------------------------------------------------------------------------
+# Analysis parameters. These are the knobs that define the indicator set; they
+# are kept here rather than in code so that a reviewer can see every threshold
+# in one place.
+# ---------------------------------------------------------------------------
+
+walkshed:
+  # Network-distance thresholds, in minutes, from each school entrance.
+  minutes: [5, 10, 15]
+  # Walking speed for a child accompanied by an adult. Deliberately below the
+  # 4.8 km/h adult default used in most walkability work: the relevant traveller
+  # here is a 6-12 year old, and using an adult speed inflates every catchment.
+  walk_speed_kmh: 3.6
+
+schools:
+  # OSM tags used to identify the school population. isced:level filtering is
+  # applied afterwards where the tag exists, but coverage is poor -- only 97 of
+  # 289 Rotterdam features carry it -- so name matching does most of the work.
+  tags:
+    amenity: ["school", "kindergarten"]
+
+  # Primary/kindergarten only: ROUTES is about children walking to school, not
+  # teenagers commuting across a city or students at a tertiary institution,
+  # whose catchments are an order of magnitude wider.
+  #
+  # The first version of this list held four patterns and let through Mavo
+  # Centraal (Dutch secondary), Luzac Rotterdam (exam college) and the Piet
+  # Zwart Institute (tertiary art academy). Secondary and tertiary institutions
+  # must be excluded because their catchment is not a walking catchment; leaving
+  # them in biases every neighbourhood-scale statistic that follows.
+  #
+  # Grouped by language so the list stays auditable as cities are added.
+  exclude_name_patterns:
+    # --- generic / international ---
+    - "(?i)universit"
+    - "(?i)\\bcollege\\b"
+    - "(?i)academ(y|ie|ia)"
+    - "(?i)\\binstitut(e|o|te)?\\b"
+    - "(?i)campus"
+    # --- Dutch (Rotterdam) ---
+    - "(?i)hogeschool"
+    - "(?i)\\b(mavo|havo|vwo|vmbo|mbo|roc)\\b"
+    - "(?i)lyceum"
+    - "(?i)gymnasium"
+    - "(?i)scholengemeenschap"
+    - "(?i)voortgezet"
+    - "(?i)volwassen"
+    - "(?i)praktijkschool"
+    # --- Finnish (Espoo) ---
+    - "(?i)lukio"           # upper secondary
+    - "(?i)yliopisto"       # university
+    - "(?i)ammatti"         # vocational
+    - "(?i)korkeakoulu"     # higher education
+    # --- Slovak (Bratislava) ---
+    - "(?i)gymn[aá]zium"
+    - "(?i)stredn[aá]"      # secondary
+    - "(?i)vysok[aá]"       # higher
+    # --- Albanian (Tirana) ---
+    - "(?i)gjimnaz"
+    - "(?i)shkolla e mesme"  # secondary school
+
+  # An unnamed feature cannot be name-filtered. In Rotterdam 34 (12%) of kept
+  # features are unnamed. Dropping them would discard real primary schools;
+  # keeping them silently admits whatever they are. They are kept and flagged so
+  # that the count can be reported with and without them.
+  flag_unnamed: true
+
+network:
+  # Pedestrian network. 'walk' in OSMnx already drops motorways and respects
+  # foot=no, but we keep service roads: school access frequently runs over them.
+  type: "walk"
+  # Speed limits above this are treated as hostile to child pedestrians when no
+  # separated footway is present.
+  hostile_speed_kmh: 50
+
+segment_index:
+  # Weights for the composite street-segment index. Equal weights within the
+  # three domains, with domains weighted by their standing in the school-street
+  # literature. Sensitivity to these weights is reported in the method note --
+  # a composite whose ranking is not robust to its own weights is not evidence.
+  domain_weights:
+    traffic_safety: 0.40
+    walking_infrastructure: 0.35
+    environment: 0.25

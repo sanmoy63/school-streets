@@ -1,0 +1,11 @@
+indicator,rotterdam,min_coverage,comparable,binding_city
+d_environment,0.0,0.0,False,rotterdam
+d_traffic_safety,1.0,1.0,True,rotterdam
+d_walking_infrastructure,0.09,0.09,False,rotterdam
+s_calming,1.0,1.0,True,rotterdam
+s_enclosure,0.0,0.0,False,rotterdam
+s_green,0.0,0.0,False,rotterdam
+s_highway,1.0,1.0,True,rotterdam
+s_lit,0.0,0.0,False,rotterdam
+s_sidewalk,0.146,0.146,False,rotterdam
+s_speed,0.824,0.824,True,rotterdam

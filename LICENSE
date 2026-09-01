@@ -1,0 +1,40 @@
+MIT License
+
+Copyright (c) 2026 Sanmoy Mukherjee
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+DATA LICENSING (separate from the code licence above)
+
+This repository's CODE is MIT-licensed. Any DATA derived from OpenStreetMap --
+including the contents of data/ and any GeoPackage, table or map produced by
+this pipeline -- is a Derivative Database under the Open Database License
+(ODbL) v1.0 and is NOT covered by the MIT licence.
+
+    (c) OpenStreetMap contributors, https://www.openstreetmap.org/copyright
+    ODbL v1.0: https://opendatacommons.org/licenses/odbl/1-0/
+
+If you redistribute derived data or produced maps you must attribute
+OpenStreetMap and license the derived database under ODbL.
+
+Other sources, where used, carry their own terms -- notably the JRC Global
+Human Settlement Layer and Copernicus products, which are distributed under
+their respective open licences.
