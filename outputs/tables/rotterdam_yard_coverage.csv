@@ -1,0 +1,12 @@
+city,indicator,kind,share,n_observed,n_yards
+rotterdam,yard_area_m2,measured,1.0,189,189
+rotterdam,yard_perimeter_m,measured,1.0,189,189
+rotterdam,yard_compactness,measured,1.0,189,189
+rotterdam,frontage_score,measured,0.963,182,189
+rotterdam,frontage_share_road,measured,1.0,189,189
+rotterdam,yard_playground,unmeasurable (leisure=playground),0.0,0,189
+rotterdam,yard_pitch,unmeasurable (leisure=pitch),0.0,0,189
+rotterdam,yard_trees,unmeasurable (natural=tree),0.0,0,189
+rotterdam,yard_grass,unmeasurable (landuse=grass),0.0,0,189
+rotterdam,yard_fenced,unmeasurable (barrier=* on boundary),0.0,0,189
+rotterdam,yard_gates,unmeasurable (barrier=gate),0.0,0,189

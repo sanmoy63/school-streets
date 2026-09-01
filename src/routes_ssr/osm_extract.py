@@ -45,6 +45,10 @@ def _graph_path(city: City) -> Path:
     return DATA_RAW / f"{city.key}_walk.graphml"
 
 
+def _yards_path(city: City) -> Path:
+    return DATA_RAW / f"{city.key}_yards.gpkg"
+
+
 def _use_cache(path: Path, refresh: bool) -> bool:
     """Whether a cached artefact should be read.
 
@@ -188,6 +192,21 @@ def fetch_schools(city: City, refresh: bool = False) -> gpd.GeoDataFrame:
     schools.insert(0, "school_id", [f"{city.key}_{i:04d}" for i in range(len(schools))])
     schools.to_file(path, driver="GPKG")
 
+    # Also persist the yard polygons, keyed by the same school_id. The points
+    # above are routing origins; the polygons are the site-scale unit, and
+    # without saving them here the footprint would have to be re-fetched and
+    # re-matched later, which is where identity slips.
+    yard_geom = feats.geometry.loc[keep.values]
+    yards = gpd.GeoDataFrame(
+        {"school_id": schools["school_id"].to_numpy(),
+         "name": schools["name"].to_numpy()},
+        geometry=yard_geom.to_numpy(),
+        crs=city.crs,
+    )
+    yards = yards.loc[yards.geometry.geom_type.isin(["Polygon", "MultiPolygon"])]
+    yards.to_file(_yards_path(city), driver="GPKG")
+    log.info("%s: %d/%d schools have a yard polygon", city.key, len(yards), len(schools))
+
     log.info(
         "%s: %d school features -> %d primary/kindergarten after filtering",
         city.key,
@@ -268,3 +287,16 @@ def graph_to_edges(G) -> gpd.GeoDataFrame:
     """Edges of a projected graph as a GeoDataFrame, one row per segment."""
     edges = ox.graph_to_gdfs(G, nodes=False, edges=True)
     return edges.reset_index()
+
+
+def fetch_yards(city: City, refresh: bool = False) -> gpd.GeoDataFrame:
+    """Schoolyard polygons, keyed by ``school_id``.
+
+    Written as a by-product of :func:`fetch_schools`, which is what keeps the
+    ids aligned. Only schools mapped as ways or relations have one; point-mapped
+    schools are absent rather than represented by a fabricated footprint.
+    """
+    path = _yards_path(city)
+    if not _use_cache(path, refresh):
+        fetch_schools(city, refresh=refresh)
+    return gpd.read_file(path)

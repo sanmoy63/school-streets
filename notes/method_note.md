@@ -244,6 +244,64 @@ to a measurement campaign. It also points at an obvious method: semantic
 segmentation of street-level imagery, which is well established for exactly this
 task.
 
+## 4b. Site scale: schoolyards
+
+ROUTES is about schoolyards *and* school streets, and says its distinctiveness
+is the combination. A site-scale analysis is therefore not optional.
+
+**What OSM cannot tell us about a Rotterdam schoolyard.** Of 241 school
+polygons, the share containing any mapped instance of:
+
+| Feature | Yards | Share |
+|---|---|---|
+| `landuse=grass` | 57 | 24% |
+| barrier on boundary | 60 | 25% |
+| `barrier=gate` | 45 | 19% |
+| `natural=tree` | 39 | 16% |
+| `leisure=pitch` | 16 | 7% |
+| `leisure=playground` | 13 | **5%** |
+
+Every interior indicator sits far below the comparability gate, and the
+missingness is not random — yards mapped in detail are systematically the newer,
+larger, better-surveyed ones. This is §4a again in a different layer. Those
+columns are carried as explicit NaN so the coverage report states the gap.
+
+**What it can.** The footprint is complete for every polygon school, and so is
+the street network. That supports one genuinely useful site indicator:
+
+**Frontage exposure** — decompose each yard's boundary by the class of road it
+fronts. Each stretch is assigned to the *worst* class within 20 m, consumed
+worst-first so shares partition the perimeter rather than double-counting
+corners. A child at a corner is exposed to the worse road, so the minimum is the
+safety-relevant choice.
+
+Rotterdam, 189 yards (67% of 284 schools have a polygon):
+
+- **182/189 (96%) front a mapped way** — the highest coverage of any indicator
+  in this project, and the only site-scale one that clears the gate
+- mean frontage score **0.769** (p10 0.640, p90 0.914)
+- 68.7% of the average perimeter fronts a mapped way
+- worst-class on boundary: residential 47%, service 24%, tertiary 8%,
+  secondary 7%
+- only **4 yards (2%)** score below 0.40 — led by De Stelberg (0.200) and
+  Johannes-Martinusschool (0.249), both fronting a secondary road
+
+Median yard area is 2,648 m² (IQR 1,475–4,320); median compactness 0.668 on the
+Polsby-Popper scale, where 1.0 is a circle.
+
+**Reading this honestly.** That only 2% of yards are badly exposed is plausibly
+a real finding about Rotterdam — Dutch primary schools are typically sited on
+quiet residential streets — but the distribution is compressed (p10 to p90 spans
+0.64–0.91), so the indicator discriminates weakly at the safe end. It is most
+useful as a *screen* for the few genuinely exposed sites, which is what a pilot
+city needs it for.
+
+Two limitations. The score includes car-free classes, so a yard bounded by
+footpaths scores 1.0 — correct for exposure, but it lifts the mean and
+`frontage_share_road` is really "share fronting any mapped way", not just roads.
+And 95 schools (33%) are mapped as points only and have no site-scale analysis
+at all.
+
 ## 5. What is not yet trustworthy
 
 Stated explicitly because the numbers above will otherwise be read as firmer
