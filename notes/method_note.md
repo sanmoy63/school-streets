@@ -1,14 +1,14 @@
 # Measuring school-street readiness across four data regimes
 
-*Method note accompanying the ROUTES pilot-city baseline. Draft — Rotterdam reference implementation.*
+*Method note accompanying the pilot-city baseline. Draft — Rotterdam reference implementation.*
 
 ---
 
 ## 1. The problem this note is about
 
-ROUTES will evaluate schoolyard and school-street transformations in Bratislava,
-Espoo, Rotterdam and Tirana. Any such evaluation needs a pre-intervention
-baseline that means the same thing in all four cities.
+Consider a four-city evaluation of schoolyard and school-street transformations
+in Bratislava, Espoo, Rotterdam and Tirana. Any such evaluation needs a
+pre-intervention baseline that means the same thing in all four cities.
 
 That is harder than it sounds, and the difficulty is not technical. The four
 pilots sit in four different data regimes:
@@ -116,7 +116,7 @@ a materially different answer.
 bridge rivers, rail cuttings and arterials. In Rotterdam — a city defined by a
 river and a ring of infrastructure — hull-based catchments would overstate
 reachable area most severely in exactly the neighbourhoods where severance is
-the problem ROUTES is trying to solve. Severance itself is reported via
+the problem such interventions are meant to solve. Severance itself is reported via
 `reach_ratio`, not via catchment area — see §2a for why the area-based version
 had to be withdrawn.
 
@@ -235,7 +235,7 @@ Rotterdam — not through tags, not through geometry. The indicator is therefore
 recorded as unknown rather than scored, and the `walking_infrastructure` domain
 falls below the coverage threshold and is excluded from the composite.
 
-**Implication for ROUTES.** If sidewalk provision is required as a monitoring
+**Implication for programme design.** If sidewalk provision is required as a monitoring
 indicator — and for a school-street project it plainly is — it must come from
 street-level imagery or field survey, and that has to be budgeted for at
 proposal stage rather than discovered in year two. This is precisely the class of
@@ -246,8 +246,9 @@ task.
 
 ## 4b. Site scale: schoolyards
 
-ROUTES is about schoolyards *and* school streets, and says its distinctiveness
-is the combination. A site-scale analysis is therefore not optional.
+A programme of this kind is about schoolyards *and* school streets, and the
+combination is what makes it distinctive. A site-scale analysis is therefore not
+optional.
 
 **What OSM cannot tell us about a Rotterdam schoolyard.** Of 241 school
 polygons, the share containing any mapped instance of:

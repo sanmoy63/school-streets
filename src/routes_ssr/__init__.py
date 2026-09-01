@@ -1,4 +1,4 @@
-"""School-street readiness analysis for the ROUTES pilot cities.
+"""School-street readiness analysis for four European pilot cities.
 
 A harmonised, open-data baseline of walkability and school-street readiness at
 site, street, neighbourhood and city scale.

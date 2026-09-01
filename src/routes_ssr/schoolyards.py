@@ -2,8 +2,9 @@
 
 Why this module is shaped the way it is
 ---------------------------------------
-ROUTES is about schoolyards *and* school streets, and its stated distinctiveness
-is the combination of the two. A site-scale analysis is therefore not optional.
+A programme of this kind is about schoolyards *and* school streets, and the
+combination of the two is what makes it distinctive. A site-scale analysis is
+therefore not optional.
 
 But probing OSM for what is *inside* a Rotterdam schoolyard returns almost
 nothing usable. Of 241 school polygons:

@@ -57,7 +57,7 @@ class City:
         Projected CRS for metric work. All lengths, buffers and densities are
         computed in this CRS; nothing metric happens in EPSG:4326.
     status:
-        ``"pilot"`` for the four ROUTES living labs, ``"observer"`` otherwise.
+        ``"pilot"`` for the four living-lab cities, ``"observer"`` otherwise.
     """
 
     key: str

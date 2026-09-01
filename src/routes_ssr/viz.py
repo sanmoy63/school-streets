@@ -1,6 +1,6 @@
 """Map and figure output.
 
-The interactive map is a prototype of the ROUTES Atlas idea: one self-contained
+The interactive map is a prototype of an open urban atlas: one self-contained
 HTML file, no server, no API keys, openable by a municipal officer who will not
 install anything. That constraint drives most of the choices here.
 """

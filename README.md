@@ -1,7 +1,13 @@
-# School-Street Readiness: a harmonised open-data baseline for the ROUTES pilot cities
+# School-Street Readiness: a harmonised open-data baseline for four European pilot cities
 
 A reproducible, multi-scale baseline of walkability and school-street readiness for
 **Bratislava, Espoo, Rotterdam and Tirana**, built entirely from openly available data.
+
+> *An independent methodological study, not affiliated with or endorsed by any
+> funded programme. These four cities were chosen because they span markedly
+> different open-data regimes — from a country with a national crash register and
+> a 100 m census grid to one with neither — which is what makes them a useful
+> test of whether a harmonised indicator set can survive the weakest case.*
 
 The question this repo answers is not "which city is most walkable". It is the
 prior question that any four-city evaluation has to settle first:
@@ -9,7 +15,7 @@ prior question that any four-city evaluation has to settle first:
 > **What can actually be measured the same way in all four pilot cities, and what
 > does the answer to that cost us?**
 
-Cross-site comparison in a project like ROUTES is limited by the *weakest* data
+Cross-site comparison of this kind is limited by the *weakest* data
 regime, not the strongest. Rotterdam has a national road-crash register and a
 100 m census grid. Tirana has neither. A comparative framework that quietly uses
 the Dutch data where it exists and drops it elsewhere is not comparative — it
@@ -59,7 +65,7 @@ that feeds the cross-city harmonisation matrix.
 within a distance threshold are buffered by 40 m and dissolved. Convex hulls and
 alpha shapes bridge across rivers, rail cuttings and arterial roads — exactly the
 barriers that determine whether a child can walk to school — and so overstate
-catchments most in the places ROUTES is designed to fix.
+catchments most in the places such interventions are designed to fix.
 
 **Walking speed is 3.6 km/h, not the usual 4.8.** The relevant traveller is a
 6–12 year old, often accompanied. Adult speeds inflate every catchment by

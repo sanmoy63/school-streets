@@ -1,11 +1,11 @@
-# ROUTES pilot cities + observer cities.
+# Pilot cities + observer cities.
 #
 # `place` strings are resolved through OSM Nominatim. `epsg` is the projected CRS
 # used for all metric operations (buffers, lengths, densities) in that city --
 # never compute distances in EPSG:4326.
 #
-# `status` distinguishes the four living-lab pilots (where ROUTES will run
-# interventions) from observer cities, which are carried through the pipeline as
+# `status` distinguishes the four living-lab pilots (where interventions would
+# run) from observer cities, which are carried through the pipeline as
 # an out-of-sample check on whether the indicators transfer.
 
 pilots:
@@ -83,9 +83,9 @@ schools:
   tags:
     amenity: ["school", "kindergarten"]
 
-  # Primary/kindergarten only: ROUTES is about children walking to school, not
-  # teenagers commuting across a city or students at a tertiary institution,
-  # whose catchments are an order of magnitude wider.
+  # Primary/kindergarten only: this analysis is about children walking to
+  # school, not teenagers commuting across a city or students at a tertiary
+  # institution, whose catchments are an order of magnitude wider.
   #
   # The first version of this list held four patterns and let through Mavo
   # Centraal (Dutch secondary), Luzac Rotterdam (exam college) and the Piet

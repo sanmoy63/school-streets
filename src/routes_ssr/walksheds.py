@@ -5,7 +5,7 @@ reachable within a network-distance threshold, buffered by a small corridor
 width and dissolved. This is deliberately not a convex hull or an alpha shape.
 Hulls bridge across rivers, rail cuttings and motorways -- precisely the
 barriers that determine whether a child can actually walk to school -- and so
-systematically overstate catchments in exactly the places ROUTES cares about.
+systematically overstate catchments in exactly the places that matter most here.
 
 Distance, not time, is the primitive here. Travel time is recovered at the end
 using a single walking speed, because the pedestrian network carries no
