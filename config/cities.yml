@@ -170,6 +170,29 @@ schools:
     - "(?i)istituto superiore"
     - "(?i)scuola secondaria"
     - "(?i)scuola media"
+    # Adult and staff education, found leaking through in the Genova run.
+    # CPIA = Centro Provinciale per l'Istruzione degli Adulti; "UO Formazione"
+    # is a health-authority staff training unit; "aule didattiche" are teaching
+    # rooms rather than a school.
+    #
+    # Note what is NOT excluded: a bare "centro". It would have caught
+    # "Centro Infanzia Porto Antico" (a real kindergarten) and "Istituto
+    # Comprensivo Centro Storico" (a real primary, where "centro" is the
+    # district name) -- the same trap as a bare "istituto", one word along.
+    # No word boundary: in a YAML double-quoted scalar "\b" is a backspace, not
+    # a regex escape, so it would have to be written "\\bCPIA\\b". "CPIA" is
+    # distinctive enough not to need one.
+    - "(?i)CPIA"
+    - "(?i)formazione"
+    - "(?i)aule didattiche"
+    # Italian secondary institutes come in many named forms. These were found by
+    # inspecting outlier lists across two Genova runs; the set is demonstrably
+    # not closed -- see the method note on the irreducible error rate of
+    # name-based filtering.
+    - "(?i)istituto nautico"
+    - "(?i)istituto magistrale"
+    - "(?i)istituto d.arte"
+    - "(?i)istituto alberghiero"
 
   # An unnamed feature cannot be name-filtered. In Rotterdam 34 (12%) of kept
   # features are unnamed. Dropping them would discard real primary schools;

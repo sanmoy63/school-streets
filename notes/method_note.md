@@ -1,6 +1,7 @@
 # Measuring school-street readiness across four data regimes
 
-*Method note accompanying the pilot-city baseline. Draft — Rotterdam reference implementation.*
+*Method note accompanying the pilot-city baseline. Draft — Rotterdam and Genova implemented;
+Antwerp and Krakow configured but not run.*
 
 ---
 
@@ -15,16 +16,27 @@ pilots sit in four different data regimes:
 
 | | Rotterdam | Antwerp | Krakow | Genova |
 |---|---|---|---|---|
-| National road-crash register | yes | yes | partial | no |
-| Fine-grained population grid | 100 m (CBS) | statistical sectors (Statbel) | 1 km (GUS) | census sections (ISTAT) |
-| Open GTFS | yes (NDOV) | yes (De Lijn) | yes (ZTP) | yes (AMT) |
-| Copernicus Urban Atlas | yes | yes | yes | *pending — non-EU* |
-| OSM sidewalk data | **none usable** (§4a) | untested | untested | untested |
+| **OSM sidewalk data** | **none usable** (§4a) | not run | not run | **none usable** (§4d) |
+| **`maxspeed` on roads** | **79.3%** | not run | not run | **9.4%** |
+| **Mapped traffic calming** | **3,806 features** | not run | not run | **73 features** |
+| **Schools with a yard polygon** | **67%** | not run | not run | **30%** |
+| National road-crash register | claimed | claimed | claimed | claimed |
+| Fine-grained population grid | claimed | claimed | claimed | claimed |
+| Copernicus Urban Atlas | all four are EU members | | | |
 
-*(Table to be finalised against the coverage reports once all four cities have
-run. The sidewalk row originally read "near-complete" for Rotterdam on the
-strength of its general OSM reputation; measuring it found nothing usable at
-all, which is why §4a exists.)*
+**Bold rows are measured. The rest are not, and are labelled as claims.**
+
+That distinction is the entire point of this note, so it would be perverse to
+open with a table that blurs it. An earlier version listed national crash
+registers and population grids per city from general knowledge. When the pilot
+set changed, those values were carried across positionally and became actively
+wrong -- asserting that Italy has no crash register and that Genova is outside
+the EU. Neither had ever been checked; the row simply looked authoritative.
+
+Nothing in this project reads a crash register or a national population grid
+(see the README's implemented-versus-planned split), so those rows describe
+intentions, not evidence. They stay, unstyled, as a reminder of what the
+enrichment layer would need to verify first.
 
 A framework that uses the best available source in each city produces indicators
 that are not comparable. A framework that uses only the lowest common
@@ -452,6 +464,74 @@ neighbourhoods where the question matters. Fixing it means a slope-adjusted
 speed (Tobler's hiking function) over a digital elevation model, which is now
 listed as required work rather than assumed away. Until then, Genovese walkshed
 and `reach_ratio` figures should be read as upper bounds.
+
+### The name filter is language-specific, and Genova proved it
+
+The exclusion list was built against Dutch naming and extended to Italian by
+adding the obvious secondary forms. Genova's population run surfaced what that
+missed: `UO Formazione aula 1` and `UO Formazione aule 5-6` (health-authority
+staff training rooms), `CPIA Centro Ponente` and `CPIA Centro Levante` (Centro
+Provinciale per l'Istruzione degli Adulti -- adult education), and
+`Aule didattiche` (teaching rooms). Five features of 304, or 1.6%.
+
+They surfaced because they appeared in the *most severed by population* list --
+`UO Formazione aula 1` showed 858 of 10,091 residents reachable -- which is a
+reminder that an outlier list is a data-quality instrument as much as a finding.
+
+**The fix had to avoid a trap.** The obvious pattern is a bare `centro`. It
+would have caught both CPIA entries, and also dropped `Centro Infanzia Porto
+Antico` (a real kindergarten) and `Istituto Comprensivo Centro Storico` (a real
+primary school, where *centro* is the district name). That is precisely the
+`Istituto Comprensivo` problem one word along: the discriminating token in one
+language is a common noun in the same language. Only the unambiguous forms are
+listed.
+
+**A second bug lurked in the fix.** The first attempt wrote the pattern as
+`"(?i)CPIA"` in YAML. In a double-quoted YAML scalar `` is a *backspace*,
+not a regex word boundary, so the pattern reached Python containing a control
+character and silently matched nothing -- the filter would have looked correct
+and passed everything through. Patterns needing a boundary must double the
+backslash, as the Dutch entries do. A test now asserts no pattern contains a
+literal backspace.
+
+Genova was re-run with the corrected filter: 304 schools became 299. The
+headline figures barely moved -- `reach_ratio` 0.478 to 0.481,
+`pop_reach_ratio` 0.437 to 0.440 -- which is itself informative, since five
+misclassified features out of 304 change a distributional statistic very little.
+
+**And the re-run found more.** The corrected outlier list surfaced `Istituto
+Nautico San Giorgio`, a nautical *secondary* institute that "istituto tecnico"
+does not match, and `New Western Men Cesino` (1 of 29 residents reachable),
+which is not a school at all. Italian secondary institutes come as *nautico*,
+*magistrale*, *d'arte*, *alberghiero* and more; each is a separate string.
+
+### The irreducible error rate
+
+Two rounds of correction each surfaced new cases, so the honest conclusion is
+not that the filter is now right. It is that **name-based classification has an
+error rate that cannot be driven to zero and cannot be measured without manual
+validation of every feature.**
+
+The principled alternative is OSM's `isced:level`, which encodes the education
+stage directly. It carried on only 97 of 289 Rotterdam features (34%), so it
+cannot carry the filter alone -- and the two cannot simply be combined, because
+where the tag is absent you are back to names.
+
+What this bounds is precision. Roughly 1-2% of any city's school set is likely
+misclassified, in both directions, and every figure conditioned on the school
+set inherits that. It is not large enough to overturn any finding here, and it
+is large enough that no school-level number should be quoted to three decimal
+places without checking that school by hand.
+
+**Published Genova figures use the 299-school set.** The `nautico`/`magistrale`/
+`d'arte`/`alberghiero` patterns were added afterwards and are *not* reflected in
+the current outputs; re-running would drop one or two further features and shift
+`reach_ratio` by well under 0.005. The config is ahead of the data by design, so
+that the next full run is correct.
+
+The lesson generalises: **every new language needs its own audit against real
+names from that city**, not a translation of the previous city's list — and the
+audit will still be incomplete.
 
 ### What is comparable anyway
 

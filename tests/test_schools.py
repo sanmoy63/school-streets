@@ -27,6 +27,9 @@ PATTERNS = params("schools")["exclude_name_patterns"]
         "Liceo Scientifico Cassini",       # Italian upper secondary
         "Istituto Tecnico Nautico",        # Italian technical secondary
         "Scuola Secondaria di Primo Grado",  # Italian lower secondary
+        "CPIA CENTRO PONENTE",             # Italian adult education centre
+        "UO Formazione aula 1",            # staff training room, not a school
+        "Aule didattiche",                 # teaching rooms
     ],
 )
 def test_excludes_non_primary_institutions(name):
@@ -47,6 +50,8 @@ def test_excludes_non_primary_institutions(name):
         "Istituto Comprensivo Sampierdarena", # Italian primary unit
         "Scuola Primaria Giovanni Pascoli",   # Italian primary
         "Scuola dell'Infanzia Arcobaleno",    # Italian kindergarten
+        "Centro Infanzia Porto Antico",       # real kindergarten -- "centro" trap
+        "Istituto Comprensivo Centro Storico",  # real primary -- "centro" is a district
     ],
 )
 def test_keeps_primary_and_kindergarten(name):
@@ -70,3 +75,35 @@ def test_all_exclusion_patterns_compile():
 
     for p in PATTERNS:
         re.compile(p)
+
+
+def test_centro_is_not_a_blanket_exclusion():
+    """The Istituto Comprensivo trap, one word along.
+
+    Excluding a bare "centro" would catch CPIA adult-education centres, but it
+    would also drop "Centro Infanzia Porto Antico" (a kindergarten) and
+    "Istituto Comprensivo Centro Storico" (a primary school in the historic
+    centre district). Only the unambiguous adult-education forms are listed.
+    """
+    assert _looks_like_non_primary("CPIA Centro Levante", PATTERNS)
+    assert not _looks_like_non_primary("Centro Infanzia Porto Antico", PATTERNS)
+    assert not _looks_like_non_primary("Istituto Comprensivo Centro Storico", PATTERNS)
+
+
+def test_yaml_double_quoted_escapes_survive_into_regex():
+    r"""Guard a real bug: in a YAML double-quoted scalar "" is a backspace.
+
+    A pattern written "(?i)CPIA" therefore reaches Python as a literal
+    backspace and silently never matches -- the filter appears to work and
+    quietly passes everything through. Patterns needing a word boundary must
+    double the backslash, and this asserts they still function.
+    """
+    import re
+
+    for p in PATTERNS:
+        assert "" not in p, f"pattern contains a literal backspace: {p!r}"
+        re.compile(p)
+
+    # The double-escaped word boundaries still behave as boundaries.
+    assert _looks_like_non_primary("Rotterdam College", PATTERNS)
+    assert not _looks_like_non_primary("Collegewijk Basisschool", PATTERNS)
