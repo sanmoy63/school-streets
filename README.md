@@ -37,7 +37,7 @@ the failure mode this design exists to catch.
 
 | Scale | Unit | Output |
 |---|---|---|
-| Site | schoolyard footprint | yard area, network attachment |
+| Site | schoolyard footprint | yard area — *carried into the output, not yet analysed* |
 | **Street** | **OSM way segment** | **indicator scores + composite SSR index** |
 | Neighbourhood | 5 / 10 / 15-min network walkshed | catchment area, `reach_ratio` severance |
 | City | administrative area | coverage report, index distribution |
