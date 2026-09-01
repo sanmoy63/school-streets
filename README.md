@@ -111,9 +111,24 @@ Then, optionally:
 
 ```bash
 python scripts/02_harmonisation_matrix.py     # cross-city comparability table
-python scripts/03_map.py rotterdam            # interactive map (~8 MB, not in git)
+python scripts/04_schoolyards.py rotterdam    # site-scale yard indicators
+python scripts/05_population.py rotterdam     # residents in catchments
+python scripts/03_map.py rotterdam            # full-detail map (~8 MB, not in git)
+python scripts/06_atlas.py                    # published atlas -> docs/index.html
 python scripts/90_diagnostics.py rotterdam    # parameter sensitivity checks
 ```
+
+### The published atlas
+
+[**View the atlas →**](https://sanmoy63.github.io/school-streets/)
+
+`docs/index.html` is a single self-contained page served by GitHub Pages. It is
+deliberately *not* the same artefact as `03_map.py`: that one draws every street
+in the catchments and runs to ~8 MB per city, which is fine on disk and
+unacceptable in git history. The atlas carries schools, 10-minute walksheds and
+only the streets scoring at or below 0.20 — the plausible intervention set —
+which brings two cities to 2.3 MB. The complete network stays in the
+GeoPackages.
 
 Requires Python 3.11+ (developed on 3.13). `requirements.txt` gives lower bounds;
 `requirements.lock.txt` pins the exact versions the Rotterdam baseline was built
