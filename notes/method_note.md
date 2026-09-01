@@ -7,17 +7,17 @@
 ## 1. The problem this note is about
 
 Consider a four-city evaluation of schoolyard and school-street transformations
-in Bratislava, Espoo, Rotterdam and Tirana. Any such evaluation needs a
+in Rotterdam, Antwerp, Krakow and Genova. Any such evaluation needs a
 pre-intervention baseline that means the same thing in all four cities.
 
 That is harder than it sounds, and the difficulty is not technical. The four
 pilots sit in four different data regimes:
 
-| | Rotterdam | Espoo | Bratislava | Tirana |
+| | Rotterdam | Antwerp | Krakow | Genova |
 |---|---|---|---|---|
 | National road-crash register | yes | yes | partial | no |
-| Fine-grained population grid | 100 m (CBS) | 250 m (Tilastokeskus) | EU grid | GHS-POP only |
-| Open GTFS | yes | yes (HSL) | yes (IDS BK) | limited |
+| Fine-grained population grid | 100 m (CBS) | statistical sectors (Statbel) | 1 km (GUS) | census sections (ISTAT) |
+| Open GTFS | yes (NDOV) | yes (De Lijn) | yes (ZTP) | yes (AMT) |
 | Copernicus Urban Atlas | yes | yes | yes | *pending — non-EU* |
 | OSM sidewalk data | **none usable** (§4a) | untested | untested | untested |
 
@@ -443,7 +443,8 @@ seventh only by stating an expectation formally enough for a machine to check.
 
 - [x] Rotterdam reference implementation
 - [x] Test suite (111 tests) and CI
-- [ ] Espoo, Bratislava, Tirana
+- [ ] Antwerp, Krakow, Genova
+- [ ] Slope-adjusted walking speed (required before Genova results can be trusted)
 - [ ] Harmonisation matrix as an actual comparison (currently one city)
 - [ ] Greenness and enclosure (environment domain currently unobserved)
 - [ ] Weight sensitivity

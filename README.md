@@ -1,13 +1,16 @@
 # School-Street Readiness: a harmonised open-data baseline for four European pilot cities
 
 A reproducible, multi-scale baseline of walkability and school-street readiness for
-**Bratislava, Espoo, Rotterdam and Tirana**, built entirely from openly available data.
+**Rotterdam, Antwerp, Krakow and Genova**, built entirely from openly available data.
 
 > *An independent methodological study, not affiliated with or endorsed by any
-> funded programme. These four cities were chosen because they span markedly
-> different open-data regimes — from a country with a national crash register and
-> a 100 m census grid to one with neither — which is what makes them a useful
-> test of whether a harmonised indicator set can survive the weakest case.*
+> funded programme. The four cities vary along two axes the indicators are
+> sensitive to: national data regime, and topography. All four are EU members,
+> so the data spread is deliberately narrow — if a harmonised indicator set
+> fails across four comparably-resourced European cities, it fails everywhere.
+> Rotterdam, Antwerp and Krakow are flat; Genova climbs from sea level to over
+> 400 m, and is included because it is expected to break the flat constant-speed
+> walkshed assumption the other three tolerate.*
 
 The question this repo answers is not "which city is most walkable". It is the
 prior question that any four-city evaluation has to settle first:
@@ -17,8 +20,9 @@ prior question that any four-city evaluation has to settle first:
 
 Cross-site comparison of this kind is limited by the *weakest* data
 regime, not the strongest. Rotterdam has a national road-crash register and a
-100 m census grid. Tirana has neither. A comparative framework that quietly uses
-the Dutch data where it exists and drops it elsewhere is not comparative — it
+100 m census grid; the others have coarser equivalents. A comparative framework
+that quietly uses the Dutch data where it exists and drops it elsewhere is not
+comparative — it
 produces a cross-city gradient that is really a data-availability gradient. So
 harmonisation is treated here as the first-order result, reported explicitly,
 rather than as plumbing.
@@ -129,7 +133,7 @@ reproducibility claim checkable rather than decorative.
 
 | Source | Used for | Coverage across the four pilots |
 |---|---|---|
-| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | All four — the only source that does not stop at the Albanian border |
+| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | All four — the only source with one schema across every national border |
 | GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | All four — same terms everywhere, which is why it is preferred to national grids |
 
 OSM is the base layer *because* it is the common denominator. National registries
@@ -142,9 +146,10 @@ because the harmonisation argument depends on them:
 
 | Source | Intended for | Expected coverage |
 |---|---|---|
-| Copernicus Urban Atlas + Street Tree Layer | land use, greenness | EU only — Tirana unverified |
-| GTFS feeds | transit access, temporal service variation | HSL (Espoo) strong; Rotterdam via NDOV; Bratislava IDS BK; Tirana likely absent |
+| Copernicus Urban Atlas + Street Tree Layer | land use, greenness | All four (EU members) |
+| GTFS feeds | transit access, temporal service variation | Rotterdam via NDOV; De Lijn (Antwerp); ZTP (Krakow); AMT (Genova) |
 | Street-level imagery | sidewalk provision — **the only viable route**, see method note §4a | to be established |
+| Digital elevation model | slope-adjusted walking speed — **required for Genova**, see `config/cities.yml` | Copernicus EU-DEM, all four |
 
 GHS-POP measures **total residents, not children**. No figure here should be
 reported as a child count without age structure, which needs national data.

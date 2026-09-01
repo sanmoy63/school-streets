@@ -20,9 +20,13 @@ PATTERNS = params("schools")["exclude_name_patterns"]
         "Luzac Rotterdam College",    # exam college
         "Erasmus Universiteit",
         "Hogeschool Rotterdam",
-        "Espoon lukio",               # Finnish upper secondary
-        "Gymnázium Bratislava",       # Slovak secondary
-        "Shkolla e mesme Tirana",     # Albanian secondary
+        "Koninklijk Atheneum Antwerpen",   # Flemish secondary
+        "Sint-Jozef Humaniora",            # Flemish secondary
+        "III Liceum Ogólnokształcące",     # Polish upper secondary
+        "Technikum Nr 5 Kraków",           # Polish technical secondary
+        "Liceo Scientifico Cassini",       # Italian upper secondary
+        "Istituto Tecnico Nautico",        # Italian technical secondary
+        "Scuola Secondaria di Primo Grado",  # Italian lower secondary
     ],
 )
 def test_excludes_non_primary_institutions(name):
@@ -37,8 +41,12 @@ def test_excludes_non_primary_institutions(name):
         "CBS De Sleutel",
         "Peuterspeelzaal Dikkie Dik",
         "Oranjeschool",
-        "Espoon alakoulu",
-        "Základná škola",
+        "Vrije Basisschool Sint-Lutgardis",   # Flemish primary
+        "Szkoła Podstawowa nr 12",            # Polish primary
+        "Przedszkole Samorządowe",            # Polish kindergarten
+        "Istituto Comprensivo Sampierdarena", # Italian primary unit
+        "Scuola Primaria Giovanni Pascoli",   # Italian primary
+        "Scuola dell'Infanzia Arcobaleno",    # Italian kindergarten
     ],
 )
 def test_keeps_primary_and_kindergarten(name):

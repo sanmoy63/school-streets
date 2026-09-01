@@ -11,10 +11,10 @@ Three domains are built, then combined:
   environment           -- what the street is like to be in
 
 Each indicator is scored to [0, 1] where 1 is *better for a walking child*.
-Missing data is propagated as NaN and reported, never imputed to zero: in
-Bratislava and Tirana an untagged sidewalk is overwhelmingly an unsurveyed
-sidewalk, not an absent one, and scoring absence as zero would manufacture a
-cross-city gradient that is really a mapping-effort gradient.
+Missing data is propagated as NaN and reported, never imputed to zero: an
+untagged sidewalk is overwhelmingly an unsurveyed sidewalk rather than an
+absent one, and scoring absence as zero would manufacture a cross-city
+gradient that is really a mapping-effort gradient.
 """
 
 from __future__ import annotations
@@ -95,10 +95,15 @@ _KMH = re.compile(r"^\s*([\d.]+)\s*(?:km/?h)?\s*$", re.I)
 # countries are listed; anything else falls through to NaN rather than being
 # guessed at.
 IMPLICIT_SPEED = {
+    # Netherlands
     "NL:urban": 50, "NL:zone30": 30, "NL:zone20": 20,
-    "FI:urban": 50, "FI:zone30": 30,
-    "SK:urban": 50, "SK:zone30": 30,
-    "AL:urban": 40,
+    # Belgium -- Flanders (BE-VLG) is tagged separately from the federal code.
+    "BE:urban": 50, "BE-VLG:urban": 50, "BE-BRU:urban": 30, "BE:zone30": 30,
+    # Poland
+    "PL:urban": 50, "PL:zone30": 30,
+    # Italy
+    "IT:urban": 50, "IT:rural": 90,
+    # Cross-national
     "walk": 7, "living_street": 20,
 }
 

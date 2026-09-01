@@ -4,9 +4,26 @@
 # used for all metric operations (buffers, lengths, densities) in that city --
 # never compute distances in EPSG:4326.
 #
-# `status` distinguishes the four living-lab pilots (where interventions would
-# run) from observer cities, which are carried through the pipeline as
-# an out-of-sample check on whether the indicators transfer.
+# `status` distinguishes the four pilots from observer cities, which are carried
+# through the pipeline as an out-of-sample check on whether the indicators
+# transfer within a data regime rather than across one.
+#
+# Why these four
+# --------------
+# They vary along two axes the indicator set is sensitive to.
+#
+# *Data regime.* All four are EU members, so the spread is narrower than it
+# would be with a non-EU case. That is deliberate: if a harmonised indicator set
+# fails across four comparably-resourced European cities, it fails everywhere,
+# and the failure cannot be waved away as a poor-country problem.
+#
+# *Topography.* Rotterdam, Antwerp and Krakow are flat to gently undulating.
+# Genova is not: it climbs from sea level to over 400 m inside the built-up
+# area, with stairways, funiculars and public lifts as everyday pedestrian
+# infrastructure. This matters because the walkshed model currently assumes a
+# constant walking speed on a flat network (see `walkshed.walk_speed_kmh`).
+# Genova is the case that tests that assumption, and it is included precisely
+# because it is expected to break it.
 
 pilots:
   rotterdam:
@@ -14,52 +31,65 @@ pilots:
     country: NL
     epsg: 28992          # Amersfoort / RD New
     status: pilot
-    notes: "Richest open-data environment of the four; used as the reference implementation."
+    notes: >
+      Richest open-data environment of the four and essentially flat; used as
+      the reference implementation.
 
-  espoo:
-    place: "Espoo, Finland"
-    country: FI
-    epsg: 3067           # ETRS89 / TM35FIN
-    status: pilot
-    notes: "HSL publishes high-quality open GTFS; good second case for temporal indicators."
-
-  bratislava:
-    place: "Bratislava, Slovakia"
-    country: SK
-    epsg: 8353           # S-JTSK [JTSK03] / Krovak East North
-    status: pilot
-    notes: "OSM sidewalk tagging is sparser; expect harmonisation loss on walkway indicators."
-
-  tirana:
-    place: "Tirana, Albania"
-    country: AL
-    epsg: 6870           # ETRS89 / Albania TM 2010
+  antwerp:
+    place: "Antwerpen, Belgium"
+    country: BE
+    epsg: 31370          # BD72 / Belgian Lambert 72
     status: pilot
     notes: >
-      Non-EU-member; Copernicus Urban Atlas and national crash/registry data are
-      likely unavailable. This is the binding constraint on cross-site
-      harmonisation and is treated as a result, not a gap to be silently dropped.
+      Flat, comparable density to Rotterdam, but a different national data
+      regime and a separate OSM mapping community. The closest thing to a
+      like-for-like control on Rotterdam.
 
+  krakow:
+    place: "Krakow, Poland"
+    country: PL
+    epsg: 2180           # ETRF2000-PL / CS92
+    status: pilot
+    notes: >
+      Gently undulating (~200-250 m), dense historic core with a very different
+      street morphology. Moderate national open-data provision.
+
+  genova:
+    place: "Genoa, Italy"
+    country: IT
+    epsg: 32632          # WGS 84 / UTM zone 32N
+    status: pilot
+    notes: >
+      Steep: sea level to >400 m within the city, with stairways and funiculars
+      as real pedestrian links. Expected to break the flat constant-speed
+      walkshed assumption, which is why it is here. UTM 32N is used rather than
+      RDN2008 / UTM 32N (EPSG:6707) because the latter declares a north-east
+      axis order, which invites axis-swap bugs for no benefit at this scale.
+
+# Observer cities: a second city in each pilot's country. They test whether an
+# indicator that works in one city transfers to another *within the same data
+# regime*, which isolates city-level variation from national-level data
+# availability. Not run by default.
 observers:
-  braga:
-    place: "Braga, Portugal"
-    country: PT
-    epsg: 3763
+  utrecht:
+    place: "Utrecht, Netherlands"
+    country: NL
+    epsg: 28992
     status: observer
-  lund:
-    place: "Lund, Sweden"
-    country: SE
-    epsg: 3006
+  ghent:
+    place: "Ghent, Belgium"
+    country: BE
+    epsg: 31370
     status: observer
-  nantes:
-    place: "Nantes, France"
-    country: FR
-    epsg: 2154
+  wroclaw:
+    place: "Wroclaw, Poland"
+    country: PL
+    epsg: 2180
     status: observer
-  kocaeli:
-    place: "Kocaeli, Turkey"
-    country: TR
-    epsg: 5255
+  turin:
+    place: "Turin, Italy"
+    country: IT
+    epsg: 32632
     status: observer
 
 # ---------------------------------------------------------------------------
@@ -74,12 +104,18 @@ walkshed:
   # Walking speed for a child accompanied by an adult. Deliberately below the
   # 4.8 km/h adult default used in most walkability work: the relevant traveller
   # here is a 6-12 year old, and using an adult speed inflates every catchment.
+  #
+  # NOTE: this is a single flat-terrain figure applied to every segment. It is
+  # defensible in Rotterdam, Antwerp and Krakow. It is not obviously defensible
+  # in Genova, where gradient dominates walking effort and a slope-adjusted
+  # function (Tobler) would be the standard correction. Treated as an open
+  # question rather than silently assumed away.
   walk_speed_kmh: 3.6
 
 schools:
   # OSM tags used to identify the school population. isced:level filtering is
   # applied afterwards where the tag exists, but coverage is poor -- only 97 of
-  # 289 Rotterdam features carry it -- so name matching does most of the work.
+  # 289 Rotterdam features carried it -- so name matching does most of the work.
   tags:
     amenity: ["school", "kindergarten"]
 
@@ -99,29 +135,41 @@ schools:
     - "(?i)universit"
     - "(?i)\\bcollege\\b"
     - "(?i)academ(y|ie|ia)"
-    - "(?i)\\binstitut(e|o|te)?\\b"
+    - "(?i)\\binstitut(e|te)?\\b"
     - "(?i)campus"
-    # --- Dutch (Rotterdam) ---
+    - "(?i)politech|politecnic"
+    # --- Dutch / Flemish (Rotterdam, Antwerp) ---
     - "(?i)hogeschool"
-    - "(?i)\\b(mavo|havo|vwo|vmbo|mbo|roc)\\b"
+    - "(?i)\\b(mavo|havo|vwo|vmbo|mbo|roc|aso|tso|kso)\\b"
     - "(?i)lyceum"
     - "(?i)gymnasium"
     - "(?i)scholengemeenschap"
     - "(?i)voortgezet"
     - "(?i)volwassen"
     - "(?i)praktijkschool"
-    # --- Finnish (Espoo) ---
-    - "(?i)lukio"           # upper secondary
-    - "(?i)yliopisto"       # university
-    - "(?i)ammatti"         # vocational
-    - "(?i)korkeakoulu"     # higher education
-    # --- Slovak (Bratislava) ---
-    - "(?i)gymn[aá]zium"
-    - "(?i)stredn[aá]"      # secondary
-    - "(?i)vysok[aá]"       # higher
-    # --- Albanian (Tirana) ---
-    - "(?i)gjimnaz"
-    - "(?i)shkolla e mesme"  # secondary school
+    - "(?i)middelbare"
+    - "(?i)atheneum"
+    - "(?i)humaniora"
+    - "(?i)secundair"
+    # --- Polish (Krakow) ---
+    # `ponadpodstawow` is required rather than `podstawow`, which would also
+    # match "szkola podstawowa" -- the primary schools we are trying to keep.
+    - "(?i)liceum"
+    - "(?i)technikum"
+    - "(?i)gimnazjum"
+    - "(?i)ponadpodstawow"
+    - "(?i)uniwersytet"
+    - "(?i)zawodow"          # vocational
+    # --- Italian (Genova) ---
+    # NOT a bare "istituto": an "Istituto Comprensivo" is the standard Italian
+    # unit that *contains* the primary school, so excluding it would drop most
+    # of the population we want. Only the secondary/tertiary forms are listed.
+    - "(?i)liceo"
+    - "(?i)istituto tecnico"
+    - "(?i)istituto professionale"
+    - "(?i)istituto superiore"
+    - "(?i)scuola secondaria"
+    - "(?i)scuola media"
 
   # An unnamed feature cannot be name-filtered. In Rotterdam 34 (12%) of kept
   # features are unnamed. Dropping them would discard real primary schools;

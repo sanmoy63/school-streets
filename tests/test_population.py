@@ -133,10 +133,10 @@ def test_rotterdam_falls_in_tile_r3_c19():
 
 @pytest.mark.parametrize(
     "lon,lat",
-    [(4.47917, 51.9225), (24.6559, 60.2055), (17.1077, 48.1486), (19.8187, 41.3275)],
+    [(4.47917, 51.9225), (4.4025, 51.2194), (19.9450, 50.0647), (8.9463, 44.4056)],
 )
 def test_all_four_pilot_cities_resolve_to_a_plausible_tile(lon, lat):
-    """Rotterdam, Espoo, Bratislava, Tirana."""
+    """Rotterdam, Antwerp, Krakow, Genova."""
     row, col = ghs_tile_for(lon, lat)
     assert 1 <= row <= 9
     assert 1 <= col <= 36

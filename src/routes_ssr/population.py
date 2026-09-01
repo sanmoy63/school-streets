@@ -4,8 +4,9 @@ Source
 ------
 JRC Global Human Settlement Layer, GHS-POP R2023A, 100 m, Mollweide
 (ESRI:54009). Chosen over national grids because it is the *comparable* layer:
-it exists on identical terms for Rotterdam, Espoo, Bratislava and Tirana, which
-CBS (NL) and Tilastokeskus (FI) grids do not. National grids are strictly better
+it exists on identical terms for Rotterdam, Antwerp, Krakow and Genova, which
+the CBS (NL), Statbel (BE), GUS (PL) and ISTAT (IT) products do not -- they
+differ in geometry, vintage and age banding. National grids are strictly better
 where they exist and belong in the enrichment layer, not here.
 
 What this measures, and what it does not

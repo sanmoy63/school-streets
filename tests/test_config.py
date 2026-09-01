@@ -12,7 +12,7 @@ from pyproj import CRS
 from routes_ssr.config import cities, get_city, params
 from routes_ssr.segment_index import DOMAIN_INDICATORS
 
-PILOTS = {"rotterdam", "espoo", "bratislava", "tirana"}
+PILOTS = {"rotterdam", "antwerp", "krakow", "genova"}
 
 
 def test_all_four_pilot_cities_are_configured():
