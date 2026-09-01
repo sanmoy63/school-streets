@@ -1,0 +1,11 @@
+city,indicator,share_segments,share_length,n_observed,n_applicable,n_total
+genova,s_calming,1.0,1.0,59167,59167,101900
+genova,s_speed,0.0939,0.1095,5555,59167,101900
+genova,s_highway,1.0,1.0,101900,101900,101900
+genova,s_sidewalk,0.2847,0.1807,16486,57898,101900
+genova,s_lit,0.0,0.0,0,101900,101900
+genova,s_green,0.0,0.0,0,101900,101900
+genova,s_enclosure,0.0,0.0,0,101900,101900
+genova,d_traffic_safety,1.0,1.0,101900,101900,101900
+genova,d_walking_infrastructure,0.2847,0.1807,16486,57898,101900
+genova,d_environment,,,0,0,101900

@@ -160,10 +160,11 @@ No number anywhere in this repository is derived from the *planned* sources.
 
 ## Status
 
-**Rotterdam is complete and internally consistent. The other three pilot cities
-have not yet been run**, so despite the four-city framing this is currently a
-single-city reference implementation plus a harmonisation framework designed for
-four. The cross-city comparability machinery works but has one city in it, and
+**Rotterdam and Genova are complete. Antwerp and Krakow have not yet been run**, so despite the four-city framing this is currently a
+two-city comparison plus a harmonisation framework designed for four. The
+cross-city machinery now has real content -- only **3 of 9 indicators survive
+two cities**, and one of the survivors (`s_calming`) is flagged as encoding
+mapping effort rather than street conditions (method note §4d) -- and
 [`02_harmonisation_matrix.py`](scripts/02_harmonisation_matrix.py) says so on
 every run rather than implying a comparison exists.
 

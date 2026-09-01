@@ -380,6 +380,99 @@ total. The "995,399 residents within range but not walkable" figure in the run
 log is a sum over 284 overlapping catchments, not a headcount of distinct people;
 Rotterdam has roughly 650,000 residents in total.
 
+## 4d. Genova: what a second city revealed
+
+Genova ran through the pipeline unchanged: 304 primary schools and kindergartens
+(from 373 features), 38,804 nodes, 101,900 segments, all scored. The Italian name
+filter behaved -- it excluded *Scuola Secondaria di Primo Grado*, *Scuola Media*
+and *Liceo Classico* while keeping *Istituto Comprensivo*, which is the unit that
+actually contains the primary school.
+
+The value of the second city is not the second set of numbers. It is that three
+problems became visible which one city could not show.
+
+### 1. Coverage is necessary but not sufficient for comparability
+
+`s_calming` is observed on 100% of applicable segments in **both** cities, so the
+coverage gate passes it as comparable. The values:
+
+| | Rotterdam | Genova | ratio |
+|---|---|---|---|
+| mapped calming features | 3,806 | 73 | 52x |
+| share of segments calmed | 17.15% | 0.62% | **27.6x** |
+
+Italian streets are not 28 times less calmed than Dutch ones. Dutch OSM
+contributors map speed bumps meticulously; Italian ones largely do not. Left
+alone, that mapping-effort gradient enters the composite as a substantive
+finding -- and `s_calming` is one of only three indicators that survive the gate,
+so it carries real weight.
+
+This is the missing-is-not-zero error one level up, inside the comparability test
+itself. The framework asked *"did we observe it?"* and never asked *"did we
+observe the same thing?"*.
+
+`02_harmonisation_matrix.py` now runs a **divergence check**: for every indicator
+observed in all cities, compare the mean and flag ratios beyond 5x. It flags
+`s_calming` (27.6x) and nothing else -- `s_highway` 1.03, `s_sidewalk` 1.03,
+`s_speed` 1.01. A screen, not a verdict: a real cross-city gap can be large. It
+shifts the burden of proof onto the analyst instead of letting the number pass.
+
+### 2. Speed data collapses across the border
+
+| | Rotterdam | Genova |
+|---|---|---|
+| roads with `maxspeed` | 53,333 / 67,288 (**79.3%**) | 5,394 / 57,498 (**9.4%**) |
+
+`s_speed` was comfortably comparable within Rotterdam. Across two cities it is
+not, and it drops out. Adding `IT:urban` to the implicit-speed table was
+necessary but nowhere near sufficient -- the tags are simply absent.
+
+**Only 3 of 9 indicators survive two cities**: `s_highway`, `s_calming` (now
+flagged as suspect) and the traffic-safety domain they compose. The composite is
+therefore close to a road-classification index in cross-city use, and should be
+described that way.
+
+### 3. The flat-walking assumption breaks, and by how much
+
+The topographic hypothesis was that Genova would strain a model built on
+constant-speed flat walking. It does, measurably:
+
+| | Rotterdam | Genova |
+|---|---|---|
+| stairway segments | 1,605 | **6,454** |
+| stairway length | 52.2 km (0.9% of network) | **290.1 km (4.7%)** |
+
+Genova has 5.6x the stairway length. The pipeline scores `steps` at **1.000** --
+correct for *traffic* safety, since no car can reach them -- and then routes
+through them at a flat 3.6 km/h. A 600 m route containing 200 m of stairs is not
+a ten-minute walk for a child, and the walkshed treats it as one.
+
+So Genova's catchments are overstated, and overstated *most* in the steep
+neighbourhoods where the question matters. Fixing it means a slope-adjusted
+speed (Tobler's hiking function) over a digital elevation model, which is now
+listed as required work rather than assumed away. Until then, Genovese walkshed
+and `reach_ratio` figures should be read as upper bounds.
+
+### What is comparable anyway
+
+Reported for completeness, with the caveats above:
+
+| | Rotterdam | Genova |
+|---|---|---|
+| schools kept | 284 | 304 |
+| with a yard polygon | 189 (67%) | 91 (**30%**) |
+| foot / road length ratio | 0.61 | 0.87 |
+| sidewalk evidence (both / one / unknown) | 14 / 5 / 81% | 23 / 6 / 72% |
+| `reach_ratio` at 10 min | 0.508 (sd 0.136) | 0.478 (sd 0.148) |
+| index in catchments, excl. service | 0.747 | 0.668 |
+
+The index gap is led by residential streets (0.607 vs 0.386, a difference of
+0.221). That is **not** evidence that Genovese residential streets are more
+hostile. It is what happens when 90% of a city's roads have no speed tag and its
+calming is unmapped: the two inputs that distinguish one residential street from
+another are missing, so everything collapses toward the class default. The gap
+measures OSM, not Genova.
+
 ## 5. What is not yet trustworthy
 
 Stated explicitly because the numbers above will otherwise be read as firmer

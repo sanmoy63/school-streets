@@ -26,6 +26,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
+import geopandas as gpd  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from routes_ssr import config  # noqa: E402
@@ -105,6 +106,86 @@ def main(city_keys: list[str] | None) -> None:
             "Only one city present -- the matrix is not yet a comparison. "
             "Run the remaining pilot cities before quoting these numbers."
         )
+
+    div = divergence_check(city_keys)
+    if div is not None:
+        div.round(4).to_csv(config.OUT_TABLES / "harmonisation_divergence.csv")
+        log.info("--- value divergence (coverage alone does not prove comparability) ---")
+        log.info("\n%s", div.round(4).to_string())
+        flagged = div.index[div["suspect"]].tolist()
+        if flagged:
+            log.warning(
+                "%d indicator(s) fully observed in every city but with means "
+                "differing by more than %.0fx: %s",
+                len(flagged), RATIO_ALERT, ", ".join(flagged),
+            )
+            log.warning(
+                "  These pass the coverage gate yet may encode mapping effort "
+                "rather than street conditions. Do not report them comparatively "
+                "without external validation."
+            )
+
+
+def divergence_check(city_keys: list[str] | None) -> pd.DataFrame | None:
+    """Flag indicators that are fully observed everywhere yet disagree wildly.
+
+    Coverage answers "did we observe it?". It does not answer "did we observe
+    the same thing?", and the two came apart immediately once a second city
+    existed.
+
+    `s_calming` is observed on 100% of applicable segments in both Rotterdam and
+    Genova, so the coverage gate passes it as comparable. But 17.2% of Rotterdam
+    segments are calmed against 0.6% of Genova's -- a 28x gap. Rotterdam has
+    3,806 mapped calming features; Genova has 73. Italian streets are not 28x
+    less calmed than Dutch ones; Dutch OSM contributors map speed bumps and
+    Italian ones largely do not.
+
+    Left unchecked, that mapping-effort gradient enters the composite as a
+    substantive finding, which is precisely the error this project exists to
+    avoid -- arriving here one level up, in the comparability test itself.
+
+    So: for each indicator observed in every city, compare the mean where
+    observed. A ratio beyond `RATIO_ALERT` is reported as suspect. This is a
+    screen, not a verdict; a genuine cross-city difference can be large. It puts
+    the burden of proof on the analyst rather than letting the number pass
+    silently.
+    """
+    frames = {}
+    for path in sorted(config.DATA_PROCESSED.glob("*_segments.gpkg")):
+        key = path.stem.replace("_segments", "")
+        if city_keys and key not in city_keys:
+            continue
+        frames[key] = gpd.read_file(path)
+
+    if len(frames) < 2:
+        return None
+
+    cols = sorted({c for d in frames.values() for c in d.columns if c.startswith("s_")})
+    rows = []
+    for col in cols:
+        rec = {"indicator": col}
+        for key, d in frames.items():
+            rec[key] = float(d[col].mean()) if col in d.columns and d[col].notna().any() else float("nan")
+        rows.append(rec)
+
+    df = pd.DataFrame(rows).set_index("indicator")
+    vals = df.dropna(how="any")
+    if vals.empty:
+        return None
+
+    lo = vals.min(axis=1)
+    hi = vals.max(axis=1)
+    # Guard the zero case: a zero mean makes the ratio undefined, and that is
+    # itself the signal worth reporting -- handled by the `lo.eq(0.0)` term below.
+    ratio = hi / lo.replace(0.0, float("nan"))
+
+    out = vals.copy()
+    out["ratio"] = ratio
+    out["suspect"] = (ratio > RATIO_ALERT) | lo.eq(0.0)
+    return out
+
+
+RATIO_ALERT = 5.0
 
 
 if __name__ == "__main__":
