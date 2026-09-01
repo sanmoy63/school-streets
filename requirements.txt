@@ -6,8 +6,9 @@
 # versions the Rotterdam baseline was produced with (pip freeze, Python 3.13).
 #
 # Every package here is imported by src/ or tests/. Nine packages that the
-# pipeline never imported were removed -- rasterio, momepy, libpysal, esda,
-# scipy, mapclassify, matplotlib, contextily and tqdm. They had been added in
+# pipeline never imported were removed -- momepy, libpysal, esda, scipy,
+# mapclassify, matplotlib, contextily and tqdm. (rasterio and requests came
+# back when the population module landed and began using them.) They had been added in
 # anticipation of features (raster greenness, street morphometrics, Moran's I /
 # LISA, static figures) that do not exist. `esda` even carried a comment
 # describing clustering diagnostics that were never written. A dependency list
@@ -20,6 +21,10 @@ geopandas>=1.0
 shapely>=2.0
 pyogrio>=0.9          # geopandas IO engine; pinned because GPKG round-trips depend on it
 pyproj>=3.6           # CRS handling; also imported directly by tests/test_config.py
+
+# --- raster ----------------------------------------------------------------
+rasterio>=1.3         # GHS-POP zonal statistics (src/routes_ssr/population.py)
+requests>=2.31        # GHS-POP tile download
 
 # --- networks --------------------------------------------------------------
 osmnx>=2.0            # NOTE: v2 renamed several functions; v1.x will not work

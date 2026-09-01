@@ -302,6 +302,83 @@ footpaths scores 1.0 — correct for exposure, but it lifts the mean and
 And 95 schools (33%) are mapped as points only and have no site-scale analysis
 at all.
 
+## 4c. Population: severance in people rather than geometry
+
+`reach_ratio` (§2a) counts network nodes. That answers a question about geometry,
+not about anyone. Weighting by residents converts it into a statement a city can
+act on.
+
+**Source.** GHS-POP R2023A, 100 m, Mollweide — chosen over the CBS grid
+precisely because it exists on identical terms in all four pilot cities. It
+measures **total residents, not children**. Converting to child counts needs age
+structure GHS-POP does not carry; for Rotterdam the CBS 100 m grid has age bands
+and would do it, but that is enrichment and NL-only. Nothing below should be
+reported as "children".
+
+**Residents within reach** (median per school, n=284):
+
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| median residents | 689 | 2,647 | 5,483 |
+| IQR | 454–1,060 | 1,757–3,946 | 3,802–7,757 |
+
+**Population-weighted severance.**
+
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| `pop_reach_ratio` mean | 0.360 | 0.450 | 0.500 |
+| sd | 0.132 | 0.127 | 0.134 |
+| p10–p90 | 0.20–0.54 | 0.27–0.60 | 0.32–0.66 |
+
+**At 10 minutes, 55% of the residents within straight-line range of a school
+cannot walk there within the same distance.**
+
+**The population-weighted figure is worse than the node-based one** (0.450 vs
+0.508 at 10 min). Severance therefore falls disproportionately on the *denser*
+side of each barrier: what gets cut off is not empty land but populated
+neighbourhoods. In a city divided by a river, a port and a motorway ring, that is
+plausible, and it is the kind of thing an unweighted geometric measure hides.
+
+Most severed by population at 10 min: De Droomplaats Kiekeboe (60 of 2,447
+residents reachable), De Dikkedeur (29 of 346), OBS Passe-Partout (117 of 1,257),
+Park16Hoven (131 of 1,014).
+
+This also sharpens the Kiekeboe outlier flagged in §2a: it has 2,447 residents in
+straight-line range, so it is not simply stranded in empty port land. Either the
+severance is real and severe, or the school snapped to the wrong network node.
+That distinction still needs checking by hand.
+
+### Why the denominator is a corridor, not a circle
+
+The obvious denominator — population inside a circle — would have repeated the
+exact error that invalidated `network_ratio`. The numerator is a corridor ~80 m
+wide; a circle is a solid disc, so their ratio would mostly measure corridor
+width.
+
+The denominator is therefore the *same* corridor construction applied to every
+street within Euclidean radius, reachable or not, so the buffer appears in both
+terms and cancels. Verified rather than assumed, via `--check-buffer`:
+
+| half-width | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| 20 m | 0.334 | 0.439 | 0.494 |
+| 40 m | 0.360 | 0.450 | 0.500 |
+
+Maximum drift **0.026**, against **0.40** for the area-based metric over a
+comparable sweep. The construction does what it was designed to do.
+
+### Two caveats
+
+The 100 m grid against an 80 m corridor makes cell-coverage precision the
+binding constraint, which is why coverage is computed fractionally on a 10×
+subdivided grid rather than by cell centroids — centroid masking would drop most
+of a corridor this narrow, and unevenly.
+
+Catchments overlap heavily, so per-school figures must not be summed to a city
+total. The "995,399 residents within range but not walkable" figure in the run
+log is a sum over 284 overlapping catchments, not a headcount of distinct people;
+Rotterdam has roughly 650,000 residents in total.
+
 ## 5. What is not yet trustworthy
 
 Stated explicitly because the numbers above will otherwise be read as firmer

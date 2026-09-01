@@ -37,9 +37,9 @@ the failure mode this design exists to catch.
 
 | Scale | Unit | Output |
 |---|---|---|
-| Site | schoolyard footprint | yard area — *carried into the output, not yet analysed* |
+| Site | schoolyard footprint | yard area, compactness, **frontage exposure** by road class |
 | **Street** | **OSM way segment** | **indicator scores + composite SSR index** |
-| Neighbourhood | 5 / 10 / 15-min network walkshed | catchment area, `reach_ratio` severance |
+| Neighbourhood | 5 / 10 / 15-min network walkshed | catchment area, `reach_ratio` and population-weighted `pop_reach_ratio` |
 | City | administrative area | coverage report, index distribution |
 
 Three artefacts per city, in `data/processed`:
@@ -123,7 +123,8 @@ reproducibility claim checkable rather than decorative.
 
 | Source | Used for | Coverage across the four pilots |
 |---|---|---|
-| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry | All four — the only source that does not stop at the Albanian border |
+| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | All four — the only source that does not stop at the Albanian border |
+| GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | All four — same terms everywhere, which is why it is preferred to national grids |
 
 OSM is the base layer *because* it is the common denominator. National registries
 are strictly better where they exist, and the design layers them on top as
@@ -135,12 +136,14 @@ because the harmonisation argument depends on them:
 
 | Source | Intended for | Expected coverage |
 |---|---|---|
-| GHS-POP 100 m (JRC) | population within catchments | All four |
 | Copernicus Urban Atlas + Street Tree Layer | land use, greenness | EU only — Tirana unverified |
 | GTFS feeds | transit access, temporal service variation | HSL (Espoo) strong; Rotterdam via NDOV; Bratislava IDS BK; Tirana likely absent |
 | Street-level imagery | sidewalk provision — **the only viable route**, see method note §4a | to be established |
 
-No number anywhere in this repository is derived from the planned sources.
+GHS-POP measures **total residents, not children**. No figure here should be
+reported as a child count without age structure, which needs national data.
+
+No number anywhere in this repository is derived from the *planned* sources.
 
 ---
 
