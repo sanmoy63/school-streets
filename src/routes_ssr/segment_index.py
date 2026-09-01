@@ -348,10 +348,20 @@ def composite_index(df: gpd.GeoDataFrame, min_domains: int = 1) -> gpd.GeoDataFr
     # by a one-indicator proxy.
     for domain, cols in DOMAIN_INDICATORS.items():
         present = [c for c in cols if c in out.columns]
-        if not present:
+
+        # An indicator observed *nowhere* carries no information, and counting
+        # it as applicable inflates the domain's denominator. `s_lit` has 0%
+        # coverage in Rotterdam, yet applies everywhere, so it stretched
+        # walking_infrastructure's applicable set from 67,444 roads to all
+        # 119,882 segments and reported that domain at 0.107 when the only
+        # working indicator gives 0.191. "Applicable" has to mean applicable
+        # *and* potentially observable.
+        live = [c for c in present if out[c].notna().any()]
+        if not live:
             out[f"d_{domain}"] = np.nan
             out[f"applicable_{domain}"] = False
             continue
+        present = live
 
         # Build these with explicit column labels. `applies[c]` inherits the
         # name "highway_class" from the .isin() that produced it, so a bare

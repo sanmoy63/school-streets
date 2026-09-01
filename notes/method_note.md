@@ -265,12 +265,16 @@ headline statistics. `lit` has 0% coverage and contributes nothing.
 flagged via `name_unknown` but not verified; some fraction are likely secondary
 or tertiary institutions that the filter would otherwise have caught.
 
-**A dead indicator still inflates a denominator.** `s_lit` is applicable
-everywhere but observed nowhere, so it enlarges `walking_infrastructure`'s
-applicable set from 67,444 roads to all 119,882 segments, reporting the domain at
-0.107 coverage where the only working indicator gives 0.191. The domain is
-excluded either way, so no conclusion changes — but "applicable" should arguably
-mean "applicable *and* potentially observable", and it currently does not.
+**~~A dead indicator still inflates a denominator.~~ Fixed.** `s_lit` is
+applicable everywhere but observed nowhere, and it was enlarging
+`walking_infrastructure`'s applicable set from 67,444 roads to all 119,882
+segments — reporting that domain at 0.107 coverage where its only working
+indicator gives 0.191. "Applicable" now means applicable *and* potentially
+observable: an indicator with no observations anywhere is dropped from its
+domain before coverage is computed. The domain is excluded either way, so no
+conclusion changed, but the reported number is now the meaningful one.
+
+This was found by writing the test suite, not by inspection — see §6.
 
 **The index does not discriminate on car-free ways** — see §2a. On 43% of the
 network it returns a class constant.
@@ -281,13 +285,30 @@ network it returns a class constant.
 argument, not yet a result. The harmonisation matrix needs the other three
 pilots before it means anything.
 
+## 6. Test suite
+
+111 tests, ~2 seconds, entirely offline — every fixture is synthetic geometry,
+nothing touches Overpass or `data/`. See [`tests/README.md`](../tests/README.md).
+
+The suite is organised around the errors this project actually made rather than
+around line coverage. Most tests carry a docstring naming the bug they lock
+down; the two that matter most are
+`test_no_parallel_footway_is_unknown_not_zero` and
+`test_traffic_indicators_not_applicable_on_car_free_ways`.
+
+Writing it surfaced a seventh instance of the recurring missing-is-not-zero
+error — the dead-indicator denominator described in §5 — which is the argument
+for the suite in miniature: six instances were found by reading output, and the
+seventh only by stating an expectation formally enough for a machine to check.
+
 ---
 
 ## Status
 
 - [x] Rotterdam reference implementation
+- [x] Test suite (111 tests) and CI
 - [ ] Espoo, Bratislava, Tirana
-- [ ] Harmonisation matrix from coverage reports
+- [ ] Harmonisation matrix as an actual comparison (currently one city)
 - [ ] Greenness and enclosure (environment domain currently unobserved)
 - [ ] Weight sensitivity
 - [ ] Power / MDE section

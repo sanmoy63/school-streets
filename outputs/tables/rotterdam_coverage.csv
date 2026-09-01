@@ -7,5 +7,5 @@ rotterdam,s_lit,0.0,0.0,0,119882,119882
 rotterdam,s_green,0.0,0.0,0,119882,119882
 rotterdam,s_enclosure,0.0,0.0,0,119882,119882
 rotterdam,d_traffic_safety,1.0,1.0,119882,119882,119882
-rotterdam,d_walking_infrastructure,0.1072,0.0901,12857,119882,119882
-rotterdam,d_environment,0.0,0.0,0,119882,119882
+rotterdam,d_walking_infrastructure,0.1906,0.1457,12857,67444,119882
+rotterdam,d_environment,,,0,0,119882
