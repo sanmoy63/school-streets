@@ -1,4 +1,4 @@
-# School-Street Accessibility: a slope-aware open-data measure
+# School-Street Accessibility
 
 How far can a child actually walk to school, and how much of what looks nearby
 is genuinely reachable? Built from open data for two deliberately contrasting
