@@ -18,28 +18,27 @@ prior question that any four-city evaluation has to settle first:
 > **What can actually be measured the same way in all four pilot cities, and what
 > does the answer to that cost us?**
 
-Cross-site comparison of this kind is limited by the *weakest* data
-regime, not the strongest. Rotterdam has a national road-crash register and a
-100 m census grid; the others have coarser equivalents. A comparative framework
-that quietly uses the Dutch data where it exists and drops it elsewhere is not
-comparative — it
-produces a cross-city gradient that is really a data-availability gradient. So
-harmonisation is treated here as the first-order result, reported explicitly,
-rather than as plumbing.
+Cross-site comparison of this kind is limited by the *weakest* data regime, not
+the strongest, and the gap is wider than national reputation suggests. Speed
+limits are tagged on 79.3% of Rotterdam's roads and 9.4% of Genova's; Rotterdam
+has 3,806 mapped traffic-calming features against Genova's 73. A framework that
+uses the Dutch data where it exists and drops it elsewhere is not comparative:
+it produces a cross-city gradient that is really a data-availability gradient.
+Harmonisation is therefore treated as the first-order result and reported
+explicitly, rather than as plumbing.
 
-The first run of this pipeline demonstrated the point on itself. The sidewalk
-indicator was built from the OSM `sidewalk=*` tag, which is present on **zero**
-of Rotterdam's 68,464 road segments — the Netherlands maps sidewalks as separate
-footway geometries instead. Because the tag only survives on ways that are
-themselves footways, requiring it silently narrowed the index to footways, which
-all score alike, yielding a near-constant index that looked like a result. The
-first fix ([`sidewalks.py`](src/routes_ssr/sidewalks.py)) inferred provision
-from parallel footway geometry instead — and that failed too, for a deeper
-reason: Rotterdam maps only 30 km of explicit sidewalk against 3,551 km of road,
-so absence in the data says nothing about absence on the ground. The conclusion
-is a negative result (method note §4a): **sidewalk provision is not measurable
-from OSM in Rotterdam by any route.** The episode is kept because it is exactly
-the failure mode this design exists to catch.
+Sidewalk provision illustrates the problem. The OSM `sidewalk=*` tag is present
+on **zero** of Rotterdam's 68,464 road segments, because the Netherlands maps
+sidewalks as separate footway geometries. Inferring provision from parallel
+footway geometry instead ([`sidewalks.py`](src/routes_ssr/sidewalks.py)) does not
+rescue it: Rotterdam carries only 30 km of explicitly tagged sidewalk against
+3,551 km of road, so absence in the data is uninformative about absence on the
+ground.
+
+**Sidewalk provision is therefore not measurable from OpenStreetMap in
+Rotterdam by any available route** (method note §4a). The indicator is recorded
+as unknown rather than scored, and the domain containing it falls below the
+comparability threshold and is excluded from the index.
 
 ---
 
@@ -84,13 +83,14 @@ than contributing where it happens to exist. **In Rotterdam only traffic safety
 survives that gate**, so the published index is a traffic-safety index and is
 named as such.
 
-**Missing data is propagated, not imputed** — and *not applicable* is kept
-distinct from *not observed*. An untagged sidewalk is an unsurveyed sidewalk, not
-an absent one; equally, a footway does not "lack traffic calming" — the question
-does not arise. Conflating the two produced errors in both directions, and an
-explicit applicability mask ([`segment_index.applicability`](src/routes_ssr/segment_index.py))
-is what finally resolved it. Every segment carries a `coverage` field, and no
-comparative claim is made without conditioning on it.
+**Missing data is propagated, not imputed**, and *not applicable* is kept
+distinct from *not observed*. An untagged sidewalk is an unsurveyed sidewalk
+rather than an absent one; a footway does not "lack traffic calming", since the
+question does not arise. An explicit applicability mask
+([`segment_index.applicability`](src/routes_ssr/segment_index.py)) separates the
+two, and coverage is computed over applicable segments only. Every segment
+carries a `coverage` field, and no comparative claim is made without
+conditioning on it.
 
 **The index is not the finding.** A composite whose ranking is not robust to its
 own weights is not evidence. Weight sensitivity is **not yet run** — it is listed
@@ -149,7 +149,7 @@ reproducibility claim checkable rather than decorative.
 | Source | Used for | Coverage across the four pilots |
 |---|---|---|
 | OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | All four — the only source with one schema across every national border |
-| GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | All four — same terms everywhere, which is why it is preferred to national grids |
+| GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | All four — identical terms everywhere, unlike national grids |
 
 OSM is the base layer *because* it is the common denominator. National registries
 are strictly better where they exist, and the design layers them on top as
