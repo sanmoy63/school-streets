@@ -7,9 +7,10 @@ Hulls bridge across rivers, rail cuttings and motorways -- precisely the
 barriers that determine whether a child can actually walk to school -- and so
 systematically overstate catchments in exactly the places that matter most here.
 
-Distance, not time, is the primitive here. Travel time is recovered at the end
-using a single walking speed, because the pedestrian network carries no
-reliable per-segment speed information in any of the four cities.
+Routing runs on either flat network distance or slope-adjusted walking time,
+selected by the caller (see ``terrain.py``). The time-weighted variant is the
+one that matters in hilly cities: on flat distance Rotterdam and Genova sit
+within 0.027 of each other, and on walking time they are 0.157 apart.
 """
 
 from __future__ import annotations

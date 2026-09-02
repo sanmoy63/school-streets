@@ -3,9 +3,9 @@
 Everything here is cached to ``data/raw``. Re-running is cheap; the first run
 for a city takes a few minutes against the Overpass API.
 
-A note on why OSM is the base layer rather than national registries: the four
-pilot cities sit in four different national data regimes (NL, BE, PL, IT), and only OSM
-covers all four with the same schema. National sources are strictly better where
+A note on why OSM is the base layer rather than national registries: the study
+cities sit in different national data regimes, and only OSM covers them all with
+one schema. National sources are strictly better where
 they exist, and are intended to be layered on top as clearly labelled
 enrichment (not yet implemented) -- but the *comparable*
 baseline has to come from a source with one schema across every national border.
@@ -86,7 +86,7 @@ def _looks_like_non_primary(name: object, patterns: list[str]) -> bool:
     """True if a school name matches one of the exclusion patterns.
 
     OSM's ``isced:level`` tag would be the principled filter, but its coverage
-    across the four cities is patchy and inconsistent, so name matching is used
+    across cities is patchy and inconsistent, so name matching is used
     as the fallback. Both are applied; this one only fires when the tag is
     missing. The patterns are grouped by language in `config/cities.yml`.
     """
@@ -226,7 +226,7 @@ def fetch_walk_graph(city: City, refresh: bool = False):
 
     Uses OSMnx's ``walk`` filter, which already drops motorways and honours
     ``foot=no``. Service roads are retained deliberately: school access in all
-    four cities frequently runs over them, and dropping them silently truncates
+    both cities frequently runs over them, and dropping them silently truncates
     walksheds.
     """
     path = _graph_path(city)

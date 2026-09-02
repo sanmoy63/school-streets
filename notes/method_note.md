@@ -1,4 +1,4 @@
-# Measuring school-street readiness across four data regimes
+# Measuring school-street accessibility across contrasting terrain
 
 *Method note accompanying the pilot-city baseline. Draft — Rotterdam and Genova implemented;
 Antwerp and Krakow configured but not run.*
@@ -7,22 +7,22 @@ Antwerp and Krakow configured but not run.*
 
 ## 1. The problem this note is about
 
-Consider a four-city evaluation of schoolyard and school-street transformations
-in Rotterdam, Antwerp, Krakow and Genova. Any such evaluation needs a
-pre-intervention baseline that means the same thing in all four cities.
+Consider a measure of school-street accessibility intended to work in more than
+one city. It needs a baseline that means the same thing in each of them.
 
-That is harder than it sounds, and the difficulty is not technical. The four
-pilots sit in four different data regimes:
+That is harder than it sounds, and the difficulty is not technical. Rotterdam
+and Genova already diverge sharply on what can be observed at all:
 
-| | Rotterdam | Antwerp | Krakow | Genova |
-|---|---|---|---|---|
-| **OSM sidewalk data** | **none usable** (§4a) | not run | not run | **none usable** (§4d) |
-| **`maxspeed` on roads** | **79.3%** | not run | not run | **9.4%** |
-| **Mapped traffic calming** | **3,806 features** | not run | not run | **73 features** |
-| **Schools with a yard polygon** | **67%** | not run | not run | **30%** |
-| National road-crash register | claimed | claimed | claimed | claimed |
-| Fine-grained population grid | claimed | claimed | claimed | claimed |
-| Copernicus Urban Atlas | all four are EU members | | | |
+| | Rotterdam | Genova |
+|---|---|---|
+| **Mean pedestrian gradient** | **0.044** | **0.103** |
+| **Stairways, share of network** | **0.9%** | **4.7%** |
+| **OSM sidewalk data** | **none usable** (§4a) | **none usable** (§4d) |
+| **`maxspeed` on roads** | **79.3%** | **9.4%** |
+| **Mapped traffic calming** | **3,806 features** | **73 features** |
+| **Schools with a yard polygon** | **67%** | **30%** |
+| National road-crash register | claimed | claimed |
+| Fine-grained population grid | claimed | claimed |
 
 **Bold rows are measured. The rest are not, and are labelled as claims.**
 
@@ -52,7 +52,7 @@ labelled *enrichment* that is never mixed into cross-city comparisons.
 ## 2. Units and scales
 
 The ad specifies indicators across schoolyard, street, neighbourhood and city
-scales. The pipeline produces all four, but the **street segment** is the
+scales. The pipeline produces all four scales, but the **street segment** is the
 primary unit, because it is the unit at which the intervention exists — a
 municipality closes a segment.
 
@@ -208,7 +208,7 @@ Planned content:
 
 This matters because spatially correlated outcomes make naive power calculations
 optimistic — sometimes by a factor of two or more in effective sample size. A
-monitoring framework specified without it risks committing four cities to a
+monitoring framework specified without it risks committing a study to a
 measurement campaign that cannot detect the effects it was built to find.
 
 ## 4a. A negative result: sidewalk provision is not measurable from OSM in Rotterdam
@@ -251,7 +251,7 @@ falls below the coverage threshold and is excluded from the composite.
 indicator — and for a school-street project it plainly is — it must come from
 street-level imagery or field survey, and that has to be budgeted for at
 proposal stage rather than discovered in year two. This is precisely the class of
-constraint the monitoring framework exists to surface before four cities commit
+constraint a monitoring framework exists to surface before a study commits
 to a measurement campaign. It also points at an obvious method: semantic
 segmentation of street-level imagery, which is well established for exactly this
 task.
@@ -322,7 +322,7 @@ not about anyone. Weighting by residents converts it into a statement a city can
 act on.
 
 **Source.** GHS-POP R2023A, 100 m, Mollweide — chosen over the CBS grid
-precisely because it exists on identical terms in all four pilot cities. It
+precisely because it exists on identical terms in every city. It
 measures **total residents, not children**. Converting to child counts needs age
 structure GHS-POP does not carry; for Rotterdam the CBS 100 m grid has age bands
 and would do it, but that is enrichment and NL-only. Nothing below should be
@@ -732,11 +732,23 @@ seventh only by stating an expectation formally enough for a machine to check.
 
 ## Status
 
-- [x] Rotterdam reference implementation
-- [x] Test suite (111 tests) and CI
-- [ ] Antwerp, Krakow, Genova
-- [ ] Slope-adjusted walking speed (required before Genova results can be trusted)
-- [ ] Harmonisation matrix as an actual comparison (currently one city)
-- [ ] Greenness and enclosure (environment domain currently unobserved)
-- [ ] Weight sensitivity
-- [ ] Power / MDE section
+Complete:
+
+- [x] Rotterdam and Genova, both scales, both with population weighting
+- [x] Slope-adjusted walking speed over a 30 m elevation model (§4e)
+- [x] Harmonisation matrix and cross-city divergence check, on two real cities
+- [x] Test suite (173 tests) and CI
+
+Open, in rough order of value:
+
+- [ ] Extension to further cities — Antwerp as the closest control on Rotterdam,
+      Krakow as an intermediate-relief case — to test whether the measure
+      generalises
+- [ ] Crossings: a child's route is gated by where they can cross, not only by
+      network connectivity
+- [ ] Multiple access points per school; currently one routing origin each, and
+      70% of Genova's schools are point-mapped
+- [ ] Greenness and enclosure (environment domain still unobserved)
+- [ ] Weight sensitivity, spatial autocorrelation, power / MDE
+- [ ] Validation against ground truth — nothing here has been checked against
+      street imagery or field survey

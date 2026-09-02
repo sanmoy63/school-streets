@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "routes-ssr"
 version = "0.1.0"
-description = "School-street readiness baseline for four European pilot cities"
+description = "Slope-aware school-street accessibility for Rotterdam and Genova"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { file = "LICENSE" }

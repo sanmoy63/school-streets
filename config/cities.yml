@@ -1,29 +1,35 @@
-# Pilot cities + observer cities.
+# Study cities and candidates for extension.
 #
 # `place` strings are resolved through OSM Nominatim. `epsg` is the projected CRS
 # used for all metric operations (buffers, lengths, densities) in that city --
 # never compute distances in EPSG:4326.
 #
-# `status` distinguishes the four pilots from observer cities, which are carried
-# through the pipeline as an out-of-sample check on whether the indicators
-# transfer within a data regime rather than across one.
+# Why two cities, and why these two
+# ---------------------------------
+# The pair is chosen for contrast on the one variable that turned out to matter
+# most, and held roughly constant on the others.
 #
-# Why these four
-# --------------
-# They vary along two axes the indicator set is sensitive to.
+# *Topography.* Rotterdam is flat: -18 m to +33 m across the whole city, mean
+# pedestrian gradient 0.044. Genova is not: sea level to over 400 m inside the
+# built-up area, mean gradient 0.103, with 290 km of stairways -- 4.7% of its
+# walking network against Rotterdam's 0.9%.
 #
-# *Data regime.* All four are EU members, so the spread is narrower than it
-# would be with a non-EU case. That is deliberate: if a harmonised indicator set
-# fails across four comparably-resourced European cities, it fails everywhere,
-# and the failure cannot be waved away as a poor-country problem.
+# That contrast is the point. A walkability measure built and tested only on
+# flat ground can look perfectly sound and still be wrong everywhere else, and
+# this pair demonstrated exactly that: routing on flat distance put the two
+# cities within 0.027 of each other, while slope-adjusted routing separates them
+# by 0.157 (method note 4e).
 #
-# *Topography.* Rotterdam, Antwerp and Krakow are flat to gently undulating.
-# Genova is not: it climbs from sea level to over 400 m inside the built-up
-# area, with stairways, funiculars and public lifts as everyday pedestrian
-# infrastructure. This matters because the walkshed model currently assumes a
-# constant walking speed on a flat network (see `walkshed.walk_speed_kmh`).
-# Genova is the case that tests that assumption, and it is included precisely
-# because it is expected to break it.
+# *Held roughly constant.* Both are EU members with comparable data-protection
+# and open-data regimes, both are port cities of similar order of population, and
+# both have mature OSM communities. Differences that remain -- and they are
+# large -- are therefore attributable to the cities rather than to their national
+# statistical systems.
+#
+# `observers` are candidates for extending the method, not yet run. The aim is to
+# test whether the indicator set generalises across more European contexts, and
+# on that evidence to converge on a measure that can be applied as a standard
+# rather than rebuilt per study.
 
 pilots:
   rotterdam:
@@ -32,27 +38,9 @@ pilots:
     epsg: 28992          # Amersfoort / RD New
     status: pilot
     notes: >
-      Richest open-data environment of the four and essentially flat; used as
+      The flat case. -18 m to +33 m across the city; mean pedestrian gradient
+      0.044. Also the richer of the two open-data environments, so it doubles as
       the reference implementation.
-
-  antwerp:
-    place: "Antwerpen, Belgium"
-    country: BE
-    epsg: 31370          # BD72 / Belgian Lambert 72
-    status: pilot
-    notes: >
-      Flat, comparable density to Rotterdam, but a different national data
-      regime and a separate OSM mapping community. The closest thing to a
-      like-for-like control on Rotterdam.
-
-  krakow:
-    place: "Krakow, Poland"
-    country: PL
-    epsg: 2180           # ETRF2000-PL / CS92
-    status: pilot
-    notes: >
-      Gently undulating (~200-250 m), dense historic core with a very different
-      street morphology. Moderate national open-data provision.
 
   genova:
     place: "Genoa, Italy"
@@ -60,17 +48,40 @@ pilots:
     epsg: 32632          # WGS 84 / UTM zone 32N
     status: pilot
     notes: >
-      Steep: sea level to >400 m within the city, with stairways and funiculars
-      as real pedestrian links. Expected to break the flat constant-speed
-      walkshed assumption, which is why it is here. UTM 32N is used rather than
+      The steep case. Sea level to >400 m within the city; mean gradient 0.103;
+      290 km of stairways and funiculars as everyday pedestrian links. It was
+      included to test whether a flat constant-speed walkshed survives real
+      relief. It did not: see method note 4e. UTM 32N is used rather than
       RDN2008 / UTM 32N (EPSG:6707) because the latter declares a north-east
       axis order, which invites axis-swap bugs for no benefit at this scale.
 
-# Observer cities: a second city in each pilot's country. They test whether an
-# indicator that works in one city transfers to another *within the same data
-# regime*, which isolates city-level variation from national-level data
-# availability. Not run by default.
+# Candidates for extending the study. Not run by default.
+#
+# Antwerp and Krakow come first: Antwerp is the closest available control on
+# Rotterdam -- flat, comparable density, different national data regime and a
+# separate OSM community -- and Krakow adds a moderate-relief case between the
+# two extremes. The rest pair a second city with each national regime already
+# represented, which separates city-level variation from national data
+# availability.
 observers:
+  antwerp:
+    place: "Antwerpen, Belgium"
+    country: BE
+    epsg: 31370          # BD72 / Belgian Lambert 72
+    status: observer
+    notes: >
+      Flat, comparable density to Rotterdam, different national data regime and
+      OSM community. The closest available control on the Rotterdam case.
+
+  krakow:
+    place: "Krakow, Poland"
+    country: PL
+    epsg: 2180           # ETRF2000-PL / CS92
+    status: observer
+    notes: >
+      Moderate relief (~200-250 m) and a dense historic core: an intermediate
+      case between Rotterdam's flatness and Genova's slopes.
+
   utrecht:
     place: "Utrecht, Netherlands"
     country: NL
@@ -105,11 +116,14 @@ walkshed:
   # 4.8 km/h adult default used in most walkability work: the relevant traveller
   # here is a 6-12 year old, and using an adult speed inflates every catchment.
   #
-  # NOTE: this is a single flat-terrain figure applied to every segment. It is
-  # defensible in Rotterdam, Antwerp and Krakow. It is not obviously defensible
-  # in Genova, where gradient dominates walking effort and a slope-adjusted
-  # function (Tobler) would be the standard correction. Treated as an open
-  # question rather than silently assumed away.
+  # This is the speed on LEVEL ground. With --slope it anchors Tobler's hiking
+  # function, which sets a per-edge speed from gradient (see terrain.py); without
+  # it, the figure is applied flat to every segment.
+  #
+  # Running flat is only defensible where relief is slight. In Genova it moved
+  # reach_ratio from 0.481 to 0.305, and moved the gap against Rotterdam by a
+  # factor of 5.8, so flat routing is retained for comparison rather than as a
+  # recommended default.
   walk_speed_kmh: 3.6
 
 schools:

@@ -1,7 +1,8 @@
-# School-Street Readiness: a harmonised open-data baseline for four European pilot cities
+# School-Street Accessibility: a slope-aware open-data measure
 
-A reproducible, multi-scale baseline of walkability and school-street readiness for
-**Rotterdam, Antwerp, Krakow and Genova**, built entirely from openly available data.
+How far can a child actually walk to school, and how much of what looks nearby
+is genuinely reachable? Built from open data for two deliberately contrasting
+cities: **Rotterdam**, which is flat, and **Genova**, which is steep.
 
 ### 🗺️ [**Open the interactive atlas →**](https://sanmoy63.github.io/school-streets/)
 
@@ -17,19 +18,48 @@ drawing *every* street:
 > The same files render normally when served by GitHub Pages.
 
 > *An independent methodological study, not affiliated with or endorsed by any
-> funded programme. The four cities vary along two axes the indicators are
-> sensitive to: national data regime, and topography. All four are EU members,
-> so the data spread is deliberately narrow — if a harmonised indicator set
-> fails across four comparably-resourced European cities, it fails everywhere.
-> Rotterdam, Antwerp and Krakow are flat; Genova climbs from sea level to over
-> 400 m, and is included because it is expected to break the flat constant-speed
-> walkshed assumption the other three tolerate.*
+> funded programme.*
+
+## Why two cities, and why these two
+
+The pair is chosen for contrast on the variable that turned out to matter most,
+and held roughly constant on the rest.
+
+**Rotterdam is flat** — −18 m to +33 m across the whole city, mean pedestrian
+gradient 0.044. **Genova is not** — sea level to over 400 m inside the built-up
+area, mean gradient 0.103, with 290 km of stairways making up 4.7% of its
+walking network against Rotterdam's 0.9%.
+
+Both are EU port cities of comparable order of population, with mature
+OpenStreetMap communities and similar open-data regimes. Holding those roughly
+constant means the differences that remain are attributable to the cities rather
+than to their national statistical systems.
+
+**That contrast is the whole point.** A walkability measure built and tested only
+on flat ground can look entirely sound and still be wrong everywhere else — and
+this pair demonstrated exactly that. Routing on flat distance put the two cities
+within 0.027 of each other. Slope-aware routing separates them by 0.157, a
+**5.8× difference**, and **12.6×** once weighted by residents. The flat
+assumption was not producing a slightly optimistic Genova figure; it was
+concealing almost the entire difference between the two cities.
+
+## Where this is going
+
+Two cities establish that terrain matters and roughly how much. They cannot
+establish how the measure behaves across the range of European urban form.
+
+The next step is extension to further cities — Antwerp as the closest control on
+Rotterdam, Krakow as an intermediate-relief case, then others — to test whether
+the indicator set generalises, and on that evidence to converge on a measure
+that can be applied as a standard rather than rebuilt for each study. Candidates
+are already configured in [`config/cities.yml`](config/cities.yml) and run
+through the same pipeline unchanged.
 
 The question this repo answers is not "which city is most walkable". It is the
-prior question that any four-city evaluation has to settle first:
+prior question any multi-city measure has to settle first:
 
-> **What can actually be measured the same way in all four pilot cities, and what
-> does the answer to that cost us?**
+> **What can actually be measured the same way in every city, and what does the
+> answer to that cost us?**
 
 Cross-site comparison of this kind is limited by the *weakest* data regime, not
 the strongest, and the gap is wider than national reputation suggests. Speed
@@ -172,10 +202,10 @@ reproducibility claim checkable rather than decorative.
 
 **Currently implemented — the pipeline reads only this:**
 
-| Source | Used for | Coverage across the four pilots |
+| Source | Used for | Coverage |
 |---|---|---|
-| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | All four — the only source with one schema across every national border |
-| GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | All four — identical terms everywhere, unlike national grids |
+| OpenStreetMap (Overpass) | schools, pedestrian network, speed limits, road class, traffic calming, footway geometry, schoolyard footprints | Both cities — the only source with one schema across every national border |
+| GHS-POP R2023A 100 m (JRC) | residents within catchments; population-weighted severance | Both cities — identical terms everywhere, unlike national grids |
 
 OSM is the base layer *because* it is the common denominator. National registries
 are strictly better where they exist, and the design layers them on top as
@@ -187,10 +217,10 @@ because the harmonisation argument depends on them:
 
 | Source | Intended for | Expected coverage |
 |---|---|---|
-| Copernicus Urban Atlas + Street Tree Layer | land use, greenness | All four (EU members) |
+| Copernicus Urban Atlas + Street Tree Layer | land use, greenness | EU members |
 | GTFS feeds | transit access, temporal service variation | Rotterdam via NDOV; De Lijn (Antwerp); ZTP (Krakow); AMT (Genova) |
 | Street-level imagery | sidewalk provision — **the only viable route**, see method note §4a | to be established |
-| Digital elevation model | slope-adjusted walking speed — **required for Genova**, see `config/cities.yml` | Copernicus EU-DEM, all four |
+
 
 GHS-POP measures **total residents, not children**. No figure here should be
 reported as a child count without age structure, which needs national data.
@@ -201,11 +231,12 @@ No number anywhere in this repository is derived from the *planned* sources.
 
 ## Status
 
-**Rotterdam and Genova are complete. Antwerp and Krakow have not yet been run**, so despite the four-city framing this is currently a
-two-city comparison plus a harmonisation framework designed for four. The
-cross-city machinery now has real content -- only **3 of 9 indicators survive
-two cities**, and one of the survivors (`s_calming`) is flagged as encoding
-mapping effort rather than street conditions (method note §4d) -- and
+**Rotterdam and Genova are complete**, including slope-aware routing and
+population weighting. Candidates for extension are configured but not run.
+
+The cross-city machinery has real content: only **3 of 9 indicators survive both
+cities**, and one survivor (`s_calming`) is flagged as encoding mapping effort
+rather than street conditions (method note §4d). Meanwhile
 [`02_harmonisation_matrix.py`](scripts/02_harmonisation_matrix.py) says so on
 every run rather than implying a comparison exists.
 

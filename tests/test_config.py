@@ -12,10 +12,10 @@ from pyproj import CRS
 from routes_ssr.config import cities, get_city, params
 from routes_ssr.segment_index import DOMAIN_INDICATORS
 
-PILOTS = {"rotterdam", "antwerp", "krakow", "genova"}
+PILOTS = {"rotterdam", "genova"}
 
 
-def test_all_four_pilot_cities_are_configured():
+def test_both_study_cities_are_configured():
     assert set(cities()) == PILOTS
 
 
