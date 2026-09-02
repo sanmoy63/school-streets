@@ -20,7 +20,7 @@ drawing *every* street:
 > *An independent methodological study, not affiliated with or endorsed by any
 > funded programme.*
 
-## Why two cities, and why these two
+## Why choose two cities, and especially these two ?
 
 The pair is chosen for contrast on the variable that turned out to matter most,
 and held roughly constant on the rest.
@@ -43,7 +43,7 @@ within 0.027 of each other. Slope-aware routing separates them by 0.157, a
 assumption was not producing a slightly optimistic Genova figure; it was
 concealing almost the entire difference between the two cities.
 
-## Where this is going
+## Where this is going ?
 
 Two cities establish that terrain matters and roughly how much. They cannot
 establish how the measure behaves across the range of European urban form.
@@ -85,7 +85,7 @@ comparability threshold and is excluded from the index.
 
 ---
 
-## What it produces
+## What it produces ?
 
 | Scale | Unit | Output |
 |---|---|---|
@@ -105,7 +105,7 @@ that feeds the cross-city harmonisation matrix.
 
 ---
 
-## Method, in short
+## Methodology
 
 **Walksheds are network buffers, not hulls.** The reachable street segments
 within a distance threshold are buffered by 40 m and dissolved. Convex hulls and
@@ -169,7 +169,7 @@ python scripts/06_atlas.py                    # published atlas -> docs/index.ht
 python scripts/90_diagnostics.py rotterdam    # parameter sensitivity checks
 ```
 
-### The published atlas
+### Published Map
 
 `docs/index.html` is a single self-contained page served by GitHub Pages,
 carrying schools, 10-minute walksheds and the streets scoring at or below 0.20 —
