@@ -24,17 +24,50 @@ SOFTWARE.
 
 DATA LICENSING (separate from the code licence above)
 
-This repository's CODE is MIT-licensed. Any DATA derived from OpenStreetMap --
-including the contents of data/ and any GeoPackage, table or map produced by
-this pipeline -- is a Derivative Database under the Open Database License
-(ODbL) v1.0 and is NOT covered by the MIT licence.
+This repository's CODE is MIT-licensed. The DATA it fetches and derives is NOT,
+and the three sources carry different obligations. Anything under data/, and any
+GeoPackage, table or map this pipeline produces, is a derivative of all three.
 
-    (c) OpenStreetMap contributors, https://www.openstreetmap.org/copyright
-    ODbL v1.0: https://opendatacommons.org/licenses/odbl/1-0/
 
-If you redistribute derived data or produced maps you must attribute
-OpenStreetMap and license the derived database under ODbL.
+1. OpenStreetMap  --  street network, schools, schoolyards, traffic calming
 
-Other sources, where used, carry their own terms -- notably the JRC Global
-Human Settlement Layer and Copernicus products, which are distributed under
-their respective open licences.
+    (c) OpenStreetMap contributors
+    https://www.openstreetmap.org/copyright
+    Open Database License (ODbL) v1.0
+    https://opendatacommons.org/licenses/odbl/1-0/
+
+ODbL is share-alike. Redistributing a derived database built from OSM requires
+attributing OpenStreetMap and licensing that derived database under ODbL.
+
+
+2. GHS-POP R2023A  --  residential population within school catchments
+
+    European Commission, Joint Research Centre, Global Human Settlement Layer
+    Schiavina M., Freire S., Carioli A., MacManus K. (2023):
+    GHS-POP R2023A -- GHS population grid multitemporal (1975-2030)
+    DOI 10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE
+    http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe
+
+Released by the JRC as open and free data; reuse is authorised provided the
+source is acknowledged.
+
+
+3. Copernicus DEM GLO-30  --  elevation, for slope-adjusted walking speed
+
+This pipeline reads a windowed extract and derives per-edge gradients from it,
+so the data are *modified* and the licence's modified-data notice applies:
+
+    produced using Copernicus WorldDEM-30 (c) DLR e.V. 2010-2014 and
+    (c) Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by the
+    European Union and ESA; all rights reserved
+
+Licence terms:
+https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Data/DEM/resources/license/License-COPDEM-30.pdf
+
+Note this is a Digital Surface Model, not a terrain model: it includes buildings
+and vegetation. See notes/method_note.md section 4e for how that is handled.
+
+
+If you redistribute any output of this pipeline -- including the maps under
+docs/ -- all three notices above travel with it, and the ODbL share-alike
+obligation applies to the derived database.

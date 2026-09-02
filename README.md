@@ -245,9 +245,16 @@ including where data could not be obtained — which is itself a result.
 
 ## Licence
 
-Code is MIT — see [LICENSE](LICENSE).
+Code is MIT. **The data is not**, and the three sources carry different
+obligations — see [LICENSE](LICENSE) for the full notices.
 
-Data derived from OpenStreetMap (everything under `data/`, and any table or map
-this pipeline produces) is a Derivative Database under **ODbL v1.0** and is *not*
-covered by the MIT licence. © OpenStreetMap contributors. Redistributing derived
-data requires attribution and ODbL licensing of the derived database.
+| Source | Used for | Terms |
+|---|---|---|
+| OpenStreetMap | network, schools, yards, calming | **ODbL v1.0**, share-alike |
+| GHS-POP R2023A (JRC) | residents in catchments | open, attribution required |
+| Copernicus DEM GLO-30 | elevation for slope routing | free, specific notice required |
+
+Anything under `data/`, and every table and map this pipeline produces — including
+the atlas under `docs/` — derives from all three. Redistributing any of it carries
+all three notices, and ODbL's share-alike obligation applies to the derived
+database.
