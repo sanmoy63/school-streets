@@ -3,6 +3,19 @@
 A reproducible, multi-scale baseline of walkability and school-street readiness for
 **Rotterdam, Antwerp, Krakow and Genova**, built entirely from openly available data.
 
+### 🗺️ [**Open the interactive atlas →**](https://sanmoy63.github.io/school-streets/)
+
+Rotterdam and Genova, switchable, with every school, its ten-minute walkshed and
+the streets a school-street scheme would plausibly act on. Full-detail versions
+drawing *every* street:
+[Rotterdam](https://sanmoy63.github.io/school-streets/rotterdam-full.html) ·
+[Genova](https://sanmoy63.github.io/school-streets/genova-full.html)
+
+> Open the links above, not the `.html` files in this repository. GitHub serves
+> raw files as `text/plain` and refuses to display anything over ~1 MB, so
+> clicking `docs/index.html` here shows source or an error rather than a map.
+> The same files render normally when served by GitHub Pages.
+
 > *An independent methodological study, not affiliated with or endorsed by any
 > funded programme. The four cities vary along two axes the indicators are
 > sensitive to: national data regime, and topography. All four are EU members,
@@ -127,8 +140,6 @@ python scripts/90_diagnostics.py rotterdam    # parameter sensitivity checks
 ```
 
 ### The published atlas
-
-[**View the atlas →**](https://sanmoy63.github.io/school-streets/)
 
 `docs/index.html` is a single self-contained page served by GitHub Pages,
 carrying schools, 10-minute walksheds and the streets scoring at or below 0.20 —
