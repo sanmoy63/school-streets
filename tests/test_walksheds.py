@@ -60,4 +60,10 @@ def test_reach_ratio_has_no_free_width_parameter():
     import inspect
 
     params = set(inspect.signature(reach_ratio).parameters)
-    assert params == {"G", "schools", "radius_m"}
+    # `weight` and `budget` were added so the same measure can run on a
+    # terrain-adjusted graph. Neither is a drawing choice: the assertion is that
+    # no corridor/buffer/width parameter exists, not that the signature is frozen.
+    assert not any(
+        k in p.lower() for p in params for k in ("width", "buffer", "corridor", "half")
+    ), params
+    assert {"G", "schools", "radius_m"} <= params

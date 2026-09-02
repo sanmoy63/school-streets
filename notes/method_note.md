@@ -553,6 +553,124 @@ calming is unmapped: the two inputs that distinguish one residential street from
 another are missing, so everything collapses toward the class default. The gap
 measures OSM, not Genova.
 
+## 4e. Terrain: the flat-network assumption was hiding the comparison
+
+§4d flagged that the walkshed model applied one flat walking speed everywhere,
+and that Genova's 290 km of stairways made this indefensible there. Implementing
+slope showed the problem was larger than "Genova is overstated".
+
+**Source.** Copernicus DEM GLO-30, read from the public AWS mirror. EU-DEM v1.1
+is finer (25 m against 30 m) but its tiles are 4.8 GB and the two cities fall in
+different ones. Since slope is rise over *segment* length and OSM segments run
+20-100 m, 30 m sampling is already finer than the variation that matters. The
+tiles are Cloud Optimized GeoTIFFs, so only each city's bounding box is fetched
+over range requests: **1.2 MB for Rotterdam, 2.2 MB for Genova**.
+
+**Method.** Elevation is sampled at every network node; per-edge gradient is
+rise over length; Tobler's hiking function converts gradient to speed, rescaled
+so level ground returns the 3.6 km/h child pace declared in config. The graph is
+directed, so climbing to a school and walking home are different costs.
+
+### The terrain itself
+
+| | Rotterdam | Genova |
+|---|---|---|
+| DEM range | -18 to 33 m | 0 to 1,181 m |
+| mean \|gradient\| | 0.044 | **0.103** |
+| p90 \|gradient\| | 0.119 | **0.300** |
+| stairways given the minimum gradient | 1,567 | **5,295** |
+| gradients clamped as surface-model artefacts | 754 (0.6%) | 3,816 (3.7%) |
+
+### The result
+
+`reach_ratio` at 10 minutes:
+
+| | flat model | slope-aware | change |
+|---|---|---|---|
+| Rotterdam | 0.508 | 0.462 | −9.0% |
+| Genova | 0.481 | **0.305** | **−36.6%** |
+
+**The gap between the two cities was understated 5.8-fold.** Under the flat
+model Rotterdam exceeded Genova by 0.027 — close enough to read as noise. With
+terrain the gap is 0.157. The flat assumption was not producing a slightly
+optimistic Genova figure; it was concealing almost the entire difference between
+the two cities.
+
+Genova's disadvantage also *compounds at short range*: 0.257 at 5 minutes rising
+to 0.350 at 15, against Rotterdam's much flatter 0.447 / 0.462 / 0.480. The
+walk that matters most for a young child is the one terrain penalises hardest.
+
+### Weighted by residents, the effect is larger still
+
+Population was recomputed on the same terrain-adjusted routing, since reporting
+residents for catchments a child cannot reach would defeat the exercise. At 10
+minutes:
+
+| | Rotterdam | Genova |
+|---|---|---|
+| median residents reachable, flat | 2,647 | 5,365 |
+| median residents reachable, slope | 2,470 (−6.7%) | **3,240 (−39.6%)** |
+| `pop_reach_ratio`, flat | 0.450 | 0.440 |
+| `pop_reach_ratio`, slope | 0.418 (−7.1%) | **0.292 (−33.6%)** |
+
+**The population-weighted gap was understated 12.6-fold** — from 0.010 to 0.126,
+worse than the 5.8× on the node measure. Weighting by where people live
+amplifies the terrain effect, because Genova's hillside neighbourhoods are
+densely populated: the steep ground is not empty.
+
+The starkest reading is the raw count. Under the flat model each Genovese school
+appeared to serve roughly twice as many residents within a ten-minute walk as
+each Rotterdam school (5,365 against 2,647), which looked like a straightforward
+density advantage. With terrain that advantage largely disappears (3,240 against
+2,470). Genova is denser, but its residents cannot convert that density into
+access on foot.
+
+### A prediction that was wrong, and what it revealed
+
+The stated expectation was that Rotterdam, being flat, would barely move, and
+that a large Rotterdam shift would indicate a broken implementation. Rotterdam
+moved 9.0%. Decomposing it on a 40-school sample:
+
+| configuration | mean reach_ratio |
+|---|---|
+| flat distance | 0.4804 |
+| slope, no stair rule | 0.4429 |
+| slope + stair rule | 0.4334 |
+
+**78% of the Rotterdam change is genuine terrain**, and only 22% comes from the
+stair-gradient assumption. Rotterdam is flat as a *city* and not flat as a
+*pedestrian network*: dikes, Maas bridge ramps and underpasses give it a mean
+gradient of 0.044, and Tobler's curve is concave, so beyond about ±0.05 both
+directions are slower than level ground. A child walking a bridge ramp really is
+slower.
+
+So the control worked, but as a diagnostic rather than as the null result
+predicted. "Flat city" is a claim about topography, not about the gradient a
+pedestrian network actually carries.
+
+### What this rests on
+
+Two assumptions carry the result and neither is validated for this population.
+
+**Tobler's function is calibrated for hikers on open terrain**, not children on
+urban staircases. Rescaling anchors its level to this study's walking pace but
+leaves its shape untested here. A validation against observed school-journey
+times would be the proper check.
+
+**GLO-30 is a surface model**, including buildings and vegetation. A street node
+beside a tall building can sample a rooftop and fabricate a cliff, which is why
+gradients are clamped at 1-in-2 — but the clamp fires on 3.7% of Genova's edges,
+which is high enough to matter. A terrain model would be preferable where one is
+available at comparable cost.
+
+**Stairs are assigned a minimum 30% gradient** where the DEM smooths them
+flatter, because a 30 m cell cannot resolve a single flight. That figure is a
+judgement, not a measurement, and it moves Rotterdam by 0.010 and Genova
+correspondingly more.
+
+Slope routing is opt-in (`--slope`) so the distance-routed results remain
+reproducible for comparison.
+
 ## 5. What is not yet trustworthy
 
 Stated explicitly because the numbers above will otherwise be read as firmer

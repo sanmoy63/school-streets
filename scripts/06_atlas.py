@@ -218,7 +218,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="legend"><span class="swatch" style="background:#c44"></span>
    Streets scoring &le; 0.20 &mdash; the plausible intervention set</div>
   <div class="legend"><span class="swatch" style="background:#3182bd;opacity:.35"></span>
-   10-minute walkshed (child pace, 3.6 km/h)</div>
+   10-minute walkshed &mdash; slope-adjusted walking time, child pace on the level</div>
 
   <h2>What the data will not support</h2>
   <div class="note warn"><b>Pavements are not measurable from OpenStreetMap.</b>
@@ -229,10 +229,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
    17.15% of Rotterdam segments are calmed against 0.62% in Genova &mdash; a 27.6&times;
    gap from 3,806 mapped features against 73. Both cities report full coverage.
    Coverage proves observation, not comparability.</div>
-  <div class="note warn"><b>Genova figures are upper bounds.</b>
-   It has 290 km of stairways (4.7% of its network) against Rotterdam's 52 km.
-   The model walks them at a flat 3.6 km/h, so catchments are overstated &mdash;
-   most in the steep neighbourhoods where it matters.</div>
+  <div class="note"><b>Terrain changes the comparison, not just the numbers.</b>
+   Routing on flat distance made Genova look comparable to Rotterdam
+   (reach 0.481 against 0.508). Routing on slope-adjusted walking time over a
+   30&nbsp;m elevation model drops Genova to 0.305 and Rotterdam only to 0.462
+   &mdash; the gap between the cities was understated <b>5.8&times;</b>, and
+   <b>12.6&times;</b> once weighted by residents. Genova is denser but cannot
+   convert that density into access on foot.</div>
   <div class="note"><b>Only 3 of 9 indicators survive two cities.</b>
    Speed limits are tagged on 79.3% of Rotterdam roads and 9.4% of Genova's, so
    that indicator drops out of any cross-city claim.</div>

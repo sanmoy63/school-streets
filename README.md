@@ -70,9 +70,17 @@ alpha shapes bridge across rivers, rail cuttings and arterial roads — exactly 
 barriers that determine whether a child can walk to school — and so overstate
 catchments most in the places such interventions are designed to fix.
 
-**Walking speed is 3.6 km/h, not the usual 4.8.** The relevant traveller is a
-6–12 year old, often accompanied. Adult speeds inflate every catchment by
-roughly a third in area.
+**Walking speed is 3.6 km/h on the level, not the usual 4.8.** The relevant
+traveller is a 6–12 year old, often accompanied. Adult speeds inflate every
+catchment by roughly a third in area.
+
+**Routing is slope-aware** (`--slope`). Edge traversal times come from Tobler's
+hiking function over a 30 m elevation model, rescaled so level ground returns
+the child pace, and the graph is directed — climbing to school is not the trip
+home. This is not a refinement: routing on flat distance made Genova look
+comparable to Rotterdam (0.481 against 0.508), while slope-aware routing gives
+0.305 against 0.462. **The gap between the two cities was understated 5.8×, and
+12.6× once weighted by residents** (method note §4e).
 
 **The composite index is designed around three domains** — traffic safety,
 walking infrastructure, environment — each scored on [0, 1] in the direction of

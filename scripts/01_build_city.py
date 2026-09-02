@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import geopandas as gpd  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from routes_ssr import config, osm_extract, segment_index, viz, walksheds  # noqa: E402
+from routes_ssr import config, osm_extract, segment_index, terrain, viz, walksheds  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,7 +92,7 @@ def coverage_report(segments: gpd.GeoDataFrame, city_key: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def main(city_key: str, refresh: bool = False) -> None:
+def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
     t0 = time.time()
     config.ensure_dirs()
     city = config.get_city(city_key)
@@ -107,7 +107,16 @@ def main(city_key: str, refresh: bool = False) -> None:
     log.info("network: %d nodes / %d edges", G.number_of_nodes(), G.number_of_edges())
 
     # 3. Walksheds ---------------------------------------------------------
-    sheds = walksheds.build_walksheds(G, schools, city)
+    # With --slope, edges carry a terrain-adjusted traversal time and routing
+    # uses it. Without it, routing is on flat distance, which is the historical
+    # behaviour and remains the default so results stay reproducible.
+    weight = "length"
+    if slope:
+        dem = terrain.fetch_dem(city, refresh=refresh)
+        terrain.add_walk_time(G, dem, float(config.params("walkshed")["walk_speed_kmh"]))
+        weight = "walk_time"
+
+    sheds = walksheds.build_walksheds(G, schools, city, weight=weight)
     sheds.to_file(config.DATA_PROCESSED / f"{city.key}_walksheds.gpkg", driver="GPKG")
 
     summary = (
@@ -199,5 +208,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("city", help="city key from config/cities.yml, e.g. rotterdam")
     ap.add_argument("--refresh", action="store_true", help="ignore cached OSM downloads")
+    ap.add_argument("--slope", action="store_true",
+                    help="route on terrain-adjusted walking time instead of flat distance")
     args = ap.parse_args()
-    main(args.city, refresh=args.refresh)
+    main(args.city, refresh=args.refresh, slope=args.slope)

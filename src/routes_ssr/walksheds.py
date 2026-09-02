@@ -64,13 +64,28 @@ def snap_schools(G, schools: gpd.GeoDataFrame) -> pd.Series:
     return snapped
 
 
-def reach_ratio(G, schools: gpd.GeoDataFrame, radius_m: float) -> pd.Series:
+def reach_ratio(
+    G,
+    schools: gpd.GeoDataFrame,
+    radius_m: float,
+    weight: str = "length",
+    budget: float | None = None,
+) -> pd.Series:
     """Severance measure: reachable nodes / nodes within the crow-flies circle.
 
     For each school, the share of network nodes inside a circle of ``radius_m``
-    that are actually reachable within ``radius_m`` of *network* distance. 1.0
-    means the network imposes no detour penalty at this scale; 0.3 means two
-    thirds of what looks nearby cannot be walked to.
+    that are actually reachable within a routing budget. 1.0 means the network
+    imposes no penalty at this scale; 0.3 means two thirds of what looks nearby
+    cannot be walked to.
+
+    ``weight`` selects the edge cost. With the default ``"length"`` the budget is
+    ``radius_m`` and the measure is purely about network detour. With
+    ``"walk_time"`` the budget is in seconds and the measure additionally
+    captures terrain: a 600 m climb costs more of the budget than 600 m on the
+    flat, which is the whole reason for the slope model.
+
+    The circle always uses ``radius_m``, so the denominator is unchanged and the
+    two variants remain directly comparable.
 
     Why this and not walkshed area / circle area
     --------------------------------------------
@@ -92,7 +107,11 @@ def reach_ratio(G, schools: gpd.GeoDataFrame, radius_m: float) -> pd.Series:
         if pd.isna(snapped[idx]):
             continue
         reachable = set(
-            nx.ego_graph(G, int(snapped[idx]), radius=radius_m, distance="length").nodes
+            nx.ego_graph(
+                G, int(snapped[idx]),
+                radius=(budget if budget is not None else radius_m),
+                distance=weight,
+            ).nodes
         )
         in_circle = nodes_gdf.index[
             nodes_gdf.geometry.distance(schools.geometry.loc[idx]) <= radius_m
@@ -103,9 +122,14 @@ def reach_ratio(G, schools: gpd.GeoDataFrame, radius_m: float) -> pd.Series:
     return out
 
 
-def _walkshed_polygon(G, source_node, radius_m: float):
+def _walkshed_polygon(G, source_node, radius_m: float, weight: str = "length",
+                      budget: float | None = None):
     """Dissolved network-buffer polygon for one origin at one radius."""
-    sub = nx.ego_graph(G, source_node, radius=radius_m, distance="length")
+    sub = nx.ego_graph(
+        G, source_node,
+        radius=(budget if budget is not None else radius_m),
+        distance=weight,
+    )
     if sub.number_of_edges() == 0:
         return None
     edges = ox.graph_to_gdfs(sub, nodes=False, edges=True)
@@ -118,6 +142,7 @@ def build_walksheds(
     schools: gpd.GeoDataFrame,
     city: City,
     minutes: list[int] | None = None,
+    weight: str = "length",
 ) -> gpd.GeoDataFrame:
     """Walkshed polygons for every school at every time threshold.
 
@@ -143,11 +168,15 @@ def build_walksheds(
     records = []
     for minute in minutes:
         radius = minutes_to_metres(minute, speed)
+        # On a time-weighted graph the budget is the threshold itself, in
+        # seconds. On a distance-weighted graph it is the equivalent distance.
+        budget = minute * 60.0 if weight == "walk_time" else radius
         for idx in schools.index[valid]:
             # int() rather than the raw Int64 scalar: graph node keys are Python
             # ints, and an explicit cast keeps the lookup from depending on
             # numpy/pandas scalar hashing equivalence.
-            poly = _walkshed_polygon(G, int(nodes[idx]), radius)
+            poly = _walkshed_polygon(G, int(nodes[idx]), radius,
+                                     weight=weight, budget=budget)
             if poly is None or poly.is_empty:
                 continue
             records.append(
@@ -172,7 +201,10 @@ def build_walksheds(
     id_to_idx = {schools.at[i, "school_id"]: i for i in schools.index}
     for minute in minutes:
         radius = minutes_to_metres(minute, speed)
-        rr = reach_ratio(G, schools, radius)
+        rr = reach_ratio(
+            G, schools, radius, weight=weight,
+            budget=(minute * 60.0 if weight == "walk_time" else radius),
+        )
         sel = out["minutes"] == minute
         out.loc[sel, "reach_ratio"] = (
             out.loc[sel, "school_id"].map(lambda s: rr.get(id_to_idx.get(s), np.nan))

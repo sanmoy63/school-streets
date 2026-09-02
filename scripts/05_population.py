@@ -42,15 +42,22 @@ import osmnx as ox  # noqa: E402
 import pandas as pd  # noqa: E402
 from shapely.ops import unary_union  # noqa: E402
 
-from routes_ssr import config, osm_extract, population, walksheds  # noqa: E402
+from routes_ssr import config, osm_extract, population, terrain, walksheds  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(message)s",
                     datefmt="%H:%M:%S")
 log = logging.getLogger("pop")
 
 
-def corridors(G, edges, schools, nodes, radius_m, half_width):
-    """Reachable and straight-line corridors per school, built identically."""
+def corridors(G, edges, schools, nodes, radius_m, half_width,
+              weight="length", budget=None):
+    """Reachable and straight-line corridors per school, built identically.
+
+    ``weight``/``budget`` mirror the walkshed routing. They must match what
+    01_build_city.py used: routing walksheds on terrain-adjusted time while
+    computing population on flat distance would report residents for catchments
+    the child cannot actually reach.
+    """
     sindex = edges.sindex
     reach, circle = [], []
 
@@ -63,7 +70,11 @@ def corridors(G, edges, schools, nodes, radius_m, half_width):
             circle.append(None)
             continue
 
-        sub = nx.ego_graph(G, int(node), radius=radius_m, distance="length")
+        sub = nx.ego_graph(
+            G, int(node),
+            radius=(budget if budget is not None else radius_m),
+            distance=weight,
+        )
         if sub.number_of_edges():
             re = ox.graph_to_gdfs(sub, nodes=False, edges=True)
             reach.append(unary_union(re.geometry.buffer(half_width).to_numpy()))
@@ -80,7 +91,7 @@ def corridors(G, edges, schools, nodes, radius_m, half_width):
     return reach, circle
 
 
-def main(city_key: str, check_buffer: bool = False) -> None:
+def main(city_key: str, check_buffer: bool = False, slope: bool = False) -> None:
     config.ensure_dirs()
     city = config.get_city(city_key)
     log.info("=== population: %s ===", city.place)
@@ -94,6 +105,12 @@ def main(city_key: str, check_buffer: bool = False) -> None:
 
     spec = config.params("walkshed")
     speed = float(spec["walk_speed_kmh"])
+
+    weight = "length"
+    if slope:
+        dem = terrain.fetch_dem(city)
+        terrain.add_walk_time(G, dem, speed)
+        weight = "walk_time"
     widths = [walksheds.CORRIDOR_HALF_WIDTH_M] + ([20.0] if check_buffer else [])
 
     frames = []
@@ -101,7 +118,10 @@ def main(city_key: str, check_buffer: bool = False) -> None:
         for minute in spec["minutes"]:
             radius = walksheds.minutes_to_metres(minute, speed)
             log.info("corridors: %d min (r=%.0f m), half-width %.0f m", minute, radius, half_width)
-            reach, circle = corridors(G, edges, schools, nodes, radius, half_width)
+            reach, circle = corridors(
+                G, edges, schools, nodes, radius, half_width, weight=weight,
+                budget=(minute * 60.0 if weight == "walk_time" else radius),
+            )
 
             gr = gpd.GeoDataFrame(geometry=reach, crs=city.crs)
             gc = gpd.GeoDataFrame(geometry=circle, crs=city.crs)
@@ -172,5 +192,7 @@ if __name__ == "__main__":
     ap.add_argument("city")
     ap.add_argument("--check-buffer", action="store_true",
                     help="also run at 20 m half-width to verify the buffer cancels")
+    ap.add_argument("--slope", action="store_true",
+                    help="route on terrain-adjusted time; must match 01_build_city.py")
     args = ap.parse_args()
-    main(args.city, check_buffer=args.check_buffer)
+    main(args.city, check_buffer=args.check_buffer, slope=args.slope)
