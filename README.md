@@ -122,13 +122,20 @@ python scripts/90_diagnostics.py rotterdam    # parameter sensitivity checks
 
 [**View the atlas →**](https://sanmoy63.github.io/school-streets/)
 
-`docs/index.html` is a single self-contained page served by GitHub Pages. It is
-deliberately *not* the same artefact as `03_map.py`: that one draws every street
-in the catchments and runs to ~8 MB per city, which is fine on disk and
-unacceptable in git history. The atlas carries schools, 10-minute walksheds and
-only the streets scoring at or below 0.20 — the plausible intervention set —
-which brings two cities to 2.3 MB. The complete network stays in the
-GeoPackages.
+`docs/index.html` is a single self-contained page served by GitHub Pages,
+carrying schools, 10-minute walksheds and the streets scoring at or below 0.20 —
+the plausible intervention set — at 2.3 MB for two cities.
+
+The full-detail maps produced by `03_map.py` draw **every** street in the
+5-minute catchments and are published alongside it:
+
+- [Rotterdam, all streets](https://sanmoy63.github.io/school-streets/rotterdam-full.html) (7.6 MB)
+- [Genova, all streets](https://sanmoy63.github.io/school-streets/genova-full.html) (7.4 MB)
+
+These are regenerated wholesale on each run rather than diffed, so each rebuild
+adds their full size to git history. They are committed once here for viewing;
+routine iteration should stay local. The complete network, with all attributes,
+is in the GeoPackages under `data/processed`.
 
 Requires Python 3.11+ (developed on 3.13). `requirements.txt` gives lower bounds;
 `requirements.lock.txt` pins the exact versions the Rotterdam baseline was built

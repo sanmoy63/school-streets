@@ -241,6 +241,13 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="note">Population is <b>total residents</b>, not children &mdash; GHS-POP
    carries no age structure. Catchments overlap, so per-school figures must not be
    summed to a city total.</div>
+  <h2>Full-detail maps</h2>
+  <div class="note">This page shows only streets scoring &le; 0.20. The maps below
+   draw <b>every</b> street in the 5-minute catchments, coloured by index. They are
+   7-8 MB each and take a few seconds to load.<br><br>
+   <a href="rotterdam-full.html">Rotterdam, all streets</a> &middot;
+   <a href="genova-full.html">Genova, all streets</a></div>
+
   <div class="sub" style="margin-top:18px">
    Method: <a href="https://github.com/sanmoy63/school-streets/blob/main/notes/method_note.md">method note</a> &middot;
    Code: <a href="https://github.com/sanmoy63/school-streets">GitHub</a>
