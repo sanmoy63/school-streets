@@ -203,8 +203,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <div id="wrap">
  <div id="side">
   <h1>School-Street Readiness Atlas</h1>
-  <div class="sub">An open-data baseline. Schools sized by residents reachable on foot,
-  coloured by how much of what looks nearby can actually be walked to.</div>
+  <div class="sub">Two contrasting cities &mdash; <b>Rotterdam</b> is flat,
+  <b>Genova</b> is steep. Schools are sized by residents reachable on foot and
+  coloured by how much of what looks nearby can actually be walked to, routing on
+  slope-adjusted walking time.</div>
   <div>__BUTTONS__</div>
 
   <h2>This city</h2>
