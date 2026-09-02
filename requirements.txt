@@ -5,16 +5,23 @@
 # easier, for a reviewer to run. `requirements.lock.txt` carries the exact
 # versions the Rotterdam baseline was produced with (pip freeze, Python 3.13).
 #
-# Every package here is imported by src/ or tests/. Nine packages that the
-# pipeline never imported were removed -- momepy, libpysal, esda, scipy,
-# mapclassify, matplotlib, contextily and tqdm. (rasterio and requests came
-# back when the population module landed and began using them.) They had been added in
-# anticipation of features (raster greenness, street morphometrics, Moran's I /
-# LISA, static figures) that do not exist. `esda` even carried a comment
-# describing clustering diagnostics that were never written. A dependency list
-# that promises capabilities the code does not have is the same
-# documentation-versus-reality problem the README had; they go back in when the
-# features that need them land.
+# Every package here is either imported by src/ or tests/, or is a runtime
+# dependency that pip will not resolve on its own -- see scipy below, which is
+# the one case where "nothing imports it" was the wrong test.
+#
+# Removed as genuinely unused: momepy, libpysal, esda, mapclassify, matplotlib,
+# contextily, tqdm. Those had been added in anticipation of features -- raster
+# greenness, street morphometrics, Moran's I / LISA, static figures -- that do
+# not exist; `esda` even carried a comment describing clustering diagnostics
+# never written. A dependency list advertising capabilities the code lacks is
+# the same documentation-versus-reality problem the README had. They return when
+# the features needing them land.
+#
+# Two came back. rasterio and requests arrived with the population module and
+# are imported directly. scipy is the interesting one: nothing imports it, no
+# upstream package declares it, and removing it still broke every clean install.
+# "Grep for imports" is a necessary test of whether a dependency is needed, not
+# a sufficient one.
 
 # --- core geospatial -------------------------------------------------------
 geopandas>=1.0
@@ -29,6 +36,12 @@ requests>=2.31        # GHS-POP tile download
 # --- networks --------------------------------------------------------------
 osmnx>=2.0            # NOTE: v2 renamed several functions; v1.x will not work
 networkx>=3.2
+scipy>=1.11           # REQUIRED, though nothing here imports it: osmnx uses a
+                      # scipy KD-tree in nearest_nodes() for *projected* graphs,
+                      # which is every graph in this project. It is an optional
+                      # dependency of osmnx, so pip will not pull it in, and
+                      # removing it fails only on a clean install -- which is
+                      # how CI caught it.
 
 # --- visualisation ---------------------------------------------------------
 folium>=0.16
