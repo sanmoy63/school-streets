@@ -110,9 +110,13 @@ def test_ratio_thresholds_are_ordered():
     assert 0 < ONE_SIDE_RATIO < BOTH_SIDES_RATIO
 
 
-def test_empty_footway_set_yields_all_unknown():
-    from tests.conftest import edge_frame, line
+def test_empty_footway_set_yields_all_unknown(road_with_no_footways):
+    """No footway layer at all still means unknown, not zero.
 
-    edges = edge_frame([{"highway_class": "residential", "geometry": line(0, 0, 100, 0)}])
-    s = sidewalk_provision(edges)
+    Uses a fixture rather than importing tests.conftest directly: `pytest`
+    invoked as a console script does not put the working directory on sys.path,
+    so `import tests.conftest` works under `python -m pytest` and fails under
+    bare `pytest`. CI runs the latter.
+    """
+    s = sidewalk_provision(road_with_no_footways)
     assert s.isna().all()

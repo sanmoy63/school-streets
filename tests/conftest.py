@@ -57,6 +57,14 @@ def road_with_distant_footway() -> gpd.GeoDataFrame:
 
 
 @pytest.fixture
+def road_with_no_footways() -> gpd.GeoDataFrame:
+    """A road and nothing else -- no footway layer at all to compare against."""
+    return edge_frame([
+        {"highway_class": "residential", "geometry": line(0, 0, 100, 0)},
+    ])
+
+
+@pytest.fixture
 def road_with_crossing_footway() -> gpd.GeoDataFrame:
     """A road crossed perpendicularly by a footway -- not a sidewalk."""
     return edge_frame([
