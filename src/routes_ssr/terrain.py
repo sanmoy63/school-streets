@@ -76,6 +76,13 @@ MIN_STAIR_SLOPE = 0.30
 # traversal time and silently disconnect the graph.
 MIN_SPEED_KMH = 0.4
 
+# The Copernicus COGs declare no nodata value at all, so GDAL returns 0.0 --
+# a finite, plausible sea-level elevation -- for any sample outside coverage.
+# Nothing downstream could distinguish that from real ground. The cached DEM is
+# therefore written with an explicit sentinel, and gaps become NaN rather than
+# a fabricated coastline.
+DEM_NODATA = -32768.0
+
 
 def _dem_path(city: City) -> Path:
     return DATA_RAW / "dem" / f"{city.key}_dem.tif"
@@ -88,6 +95,34 @@ def _tile_name(lon: float, lat: float) -> str:
     return f"{ns}{abs(int(np.floor(lat))):02d}_00_{ew}{abs(int(np.floor(lon))):03d}_00"
 
 
+def tiles_for_bounds(w: float, s: float, e: float, n: float) -> list[str]:
+    """Every 1-degree tile the bounding box touches.
+
+    Choosing the tile at the box's centre is only correct for a city that fits
+    inside one degree square. Genova does not: padded, it spans 8.646 to 9.116,
+    so the centre rule picks E008 and drops roughly 9 km of the eastern city --
+    Quarto, Quinto and Nervi, which climb steeply off the coast. Krakow (crosses
+    20 deg) and Wroclaw (crosses 17 deg) are affected the same way.
+
+    The half-open convention matters: a box ending exactly on 9.0 lies wholly
+    within E008 and must not pull in E009, so the eastern and northern edges are
+    nudged inward before flooring.
+    """
+    eps = 1e-9
+    lon_lo, lon_hi = int(np.floor(w)), int(np.floor(max(e - eps, w)))
+    lat_lo, lat_hi = int(np.floor(s)), int(np.floor(max(n - eps, s)))
+    return [
+        _tile_name(lon + 0.5, lat + 0.5)
+        for lat in range(lat_lo, lat_hi + 1)
+        for lon in range(lon_lo, lon_hi + 1)
+    ]
+
+
+def _tile_url(tile: str) -> str:
+    return (f"/vsicurl/{_BUCKET}/Copernicus_DSM_COG_10_{tile}_DEM/"
+            f"Copernicus_DSM_COG_10_{tile}_DEM.tif")
+
+
 def fetch_dem(city: City, refresh: bool = False) -> Path:
     """Download the city's bounding box from the remote DEM and cache it.
 
@@ -96,7 +131,7 @@ def fetch_dem(city: City, refresh: bool = False) -> Path:
     a full tile.
     """
     import rasterio
-    from rasterio.windows import from_bounds
+    from rasterio.merge import merge
 
     path = _dem_path(city)
     if path.exists() and path.stat().st_size > 0 and not refresh:
@@ -109,33 +144,79 @@ def fetch_dem(city: City, refresh: bool = False) -> Path:
     pad = 0.02  # ~2 km, so walksheds reaching past the boundary still sample
     w, s, e, n = w - pad, s - pad, e + pad, n + pad
 
-    tile = _tile_name((w + e) / 2, (s + n) / 2)
-    url = (f"/vsicurl/{_BUCKET}/Copernicus_DSM_COG_10_{tile}_DEM/"
-           f"Copernicus_DSM_COG_10_{tile}_DEM.tif")
+    tiles = tiles_for_bounds(w, s, e, n)
 
     os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
     os.environ.setdefault("CPL_VSIL_CURL_ALLOWED_EXTENSIONS", ".tif")
 
-    log.info("Reading DEM window for %s from tile %s", city.key, tile)
+    log.info("Reading DEM window for %s from %d tile(s): %s",
+             city.key, len(tiles), ", ".join(tiles))
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    with rasterio.open(url) as src:
-        win = from_bounds(w, s, e, n, src.transform)
-        arr = src.read(1, window=win)
-        profile = src.profile.copy()
-        profile.update(
-            driver="GTiff",
-            height=arr.shape[0],
-            width=arr.shape[1],
-            transform=rasterio.windows.transform(win, src.transform),
-            compress="deflate",
+    # A tile that is entirely ocean is not published at all, so a missing tile
+    # is expected rather than an error for a coastal city. It is logged, and the
+    # gap it leaves is filled with the nodata sentinel -- not with zero, which
+    # would read downstream as land at sea level.
+    srcs, missing = [], []
+    for tile in tiles:
+        try:
+            srcs.append(rasterio.open(_tile_url(tile)))
+        except rasterio.errors.RasterioIOError:
+            missing.append(tile)
+    if missing:
+        log.warning("DEM tile(s) unavailable (ocean-only, or not published): %s",
+                    ", ".join(missing))
+    if not srcs:
+        raise RuntimeError(
+            f"No Copernicus DEM tile available for {city.key} over bounds "
+            f"{(w, s, e, n)}; tried {tiles}"
         )
-        with rasterio.open(path, "w", **profile) as dst:
-            dst.write(arr, 1)
 
+    try:
+        # `bounds` clips the mosaic to the city window, so this still costs a
+        # couple of megabytes of range requests rather than a full tile each.
+        arr, transform = merge(srcs, bounds=(w, s, e, n), nodata=DEM_NODATA)
+        profile = srcs[0].profile.copy()
+    finally:
+        for src in srcs:
+            src.close()
+
+    band = arr[0]
+    profile.update(
+        driver="GTiff",
+        height=band.shape[0],
+        width=band.shape[1],
+        count=1,
+        transform=transform,
+        nodata=DEM_NODATA,
+        compress="deflate",
+    )
+    with rasterio.open(path, "w", **profile) as dst:
+        dst.write(band, 1)
+
+    real = band[band != DEM_NODATA]
+    gaps = int((band == DEM_NODATA).sum())
+    if gaps:
+        # The outermost row/column of the mosaic is a partial cell of the
+        # requested window and can land just outside every source tile, which
+        # costs one pixel at the edge of the 2 km pad -- well outside the city
+        # and harmless. Reporting that as a warning on every run would train the
+        # reader to ignore the message, which is how the missing half of the
+        # Genova DEM survived unnoticed in the first place. A real gap -- a
+        # tile that failed to open, or a city extending past published
+        # coverage -- is orders of magnitude larger than a single edge pixel.
+        share = 100 * gaps / band.size
+        log.log(
+            logging.WARNING if share > 0.5 else logging.INFO,
+            "DEM for %s has %d cell(s) with no coverage (%.2f%%)",
+            city.key, gaps, share,
+        )
     log.info(
-        "DEM -> %s (%.1f MB, %.0f-%.0f m)",
-        path.name, path.stat().st_size / 1e6, float(np.nanmin(arr)), float(np.nanmax(arr)),
+        "DEM -> %s (%.1f MB, %.0f-%.0f m, %d tile(s))",
+        path.name, path.stat().st_size / 1e6,
+        float(real.min()) if real.size else float("nan"),
+        float(real.max()) if real.size else float("nan"),
+        len(srcs),
     )
     return path
 
@@ -153,13 +234,27 @@ def sample_node_elevations(G, dem_path: Path) -> dict:
         xs = np.fromiter((G.nodes[n]["x"] for n in nodes), dtype=float, count=len(nodes))
         ys = np.fromiter((G.nodes[n]["y"] for n in nodes), dtype=float, count=len(nodes))
         lon, lat = tf.transform(xs, ys)
+        pts = np.column_stack([lon, lat])
         vals = np.fromiter(
-            (v[0] for v in src.sample(np.column_stack([lon, lat]))),
+            (v[0] for v in src.sample(pts)),
             dtype=float, count=len(nodes),
         )
         nodata = src.nodata
+        b = src.bounds
+
     if nodata is not None:
         vals[vals == nodata] = np.nan
+
+    # Belt and braces. GDAL returns 0.0 -- finite, and indistinguishable from
+    # real sea-level ground -- for a sample outside the raster when no nodata
+    # value is declared, and the Copernicus COGs declare none. Masking on the
+    # sentinel alone would still let a point beyond the edge through as 0 m, so
+    # anything outside the bounds is marked missing explicitly.
+    outside = (
+        (pts[:, 0] < b.left) | (pts[:, 0] > b.right)
+        | (pts[:, 1] < b.bottom) | (pts[:, 1] > b.top)
+    )
+    vals[outside] = np.nan
     return dict(zip(nodes, vals))
 
 

@@ -12,12 +12,14 @@ import rasterio
 from rasterio.transform import from_origin
 
 from routes_ssr.terrain import (
+    DEM_NODATA,
     MAX_PLAUSIBLE_SLOPE,
     MIN_SPEED_KMH,
     MIN_STAIR_SLOPE,
     _tile_name,
     add_walk_time,
     sample_node_elevations,
+    tiles_for_bounds,
     tobler_speed_kmh,
 )
 
@@ -207,3 +209,113 @@ def test_missing_elevation_falls_back_to_flat_and_is_counted(hill):
     summary = add_walk_time(G, dem, FLAT)
     assert summary["missing_elevation"] >= 1
     assert np.isfinite(G[3][99][0]["walk_time"])
+
+
+# --- DEM tile coverage -----------------------------------------------------
+#
+# These exist because the original code chose a single tile from the bounding
+# box centre. Genova is 0.47 deg wide and straddles 9 deg E, so ~9 km of the
+# eastern city fell outside the fetched DEM -- and because the Copernicus COGs
+# declare no nodata, GDAL returned 0.0 there rather than an error. Eastern
+# Genova was modelled as sea level, and edges crossing the cut got a fabricated
+# 700 m cliff that was then silently absorbed by the slope clamp.
+
+
+def test_bbox_within_one_tile_needs_only_that_tile():
+    assert tiles_for_bounds(8.2, 44.2, 8.8, 44.8) == ["N44_00_E008_00"]
+
+
+def test_genova_spans_two_tiles_in_longitude():
+    """The regression. Centre-of-bbox tile selection returned only E008."""
+    tiles = tiles_for_bounds(8.6457, 44.3585, 9.1156, 44.5398)
+    assert tiles == ["N44_00_E008_00", "N44_00_E009_00"]
+
+
+def test_a_bbox_crossing_a_latitude_boundary_spans_two_tiles():
+    """Latitude straddles must be handled as well as longitude ones.
+
+    Rotterdam is the near miss rather than a casualty: its boundary reaches
+    51.9943, so only the 2 km pad crosses 52 deg N and no street node ever lay
+    in the uncovered sliver. Its published figures are unaffected. The bounds
+    here are that padded box, kept as the latitude-axis case because nothing
+    else in the study exercises it.
+    """
+    assert tiles_for_bounds(4.26, 51.83, 4.67, 52.01) == [
+        "N51_00_E004_00",
+        "N52_00_E004_00",
+    ]
+
+
+def test_a_bbox_ending_exactly_on_a_tile_edge_does_not_pull_in_the_next_tile():
+    """Tile extents are half-open; 9.0 belongs to E008, not E009."""
+    assert tiles_for_bounds(8.2, 44.2, 9.0, 45.0) == ["N44_00_E008_00"]
+
+
+def test_krakow_needs_four_tiles_and_wroclaw_two():
+    """Both named extension candidates hit the same bug, Krakow worst of all.
+
+    Krakow crosses 20 deg E *and* 50 deg N, so centre-of-bbox selection fetched
+    one tile of the four it needs and modelled three quarters of the city as
+    sea level. Running the extension cities on the old code would have produced
+    terrain figures that were mostly artefact.
+    """
+    assert tiles_for_bounds(19.79, 49.97, 20.22, 50.13) == [
+        "N49_00_E019_00",
+        "N49_00_E020_00",
+        "N50_00_E019_00",
+        "N50_00_E020_00",
+    ]
+    assert tiles_for_bounds(16.80, 51.04, 17.18, 51.21) == [
+        "N51_00_E016_00",
+        "N51_00_E017_00",
+    ]
+
+
+def test_sample_outside_the_dem_is_missing_not_sea_level(tmp_path):
+    """The failure that made the clipped DEM invisible.
+
+    GDAL returns 0.0 for a sample outside a raster that declares no nodata, and
+    0.0 is a finite, entirely plausible elevation for a port city. Nothing
+    downstream could tell it from real ground, so the gap never showed up in
+    ``missing_elevation`` -- it showed up as a cliff in the clamp count instead.
+    """
+    path = tmp_path / "dem.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=4, width=4, count=1, dtype="float32",
+        crs="EPSG:4326", transform=from_origin(8.0, 45.0, 0.01, 0.01),
+    ) as dst:
+        dst.write(np.full((4, 4), 100.0, dtype="float32"), 1)
+
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = "EPSG:4326"
+    G.add_node(1, x=8.02, y=44.98)   # inside
+    G.add_node(2, x=8.50, y=44.98)   # far outside, where GDAL hands back 0.0
+
+    elev = sample_node_elevations(G, path)
+    assert elev[1] == pytest.approx(100.0)
+    assert np.isnan(elev[2]), "out-of-coverage node was accepted as 0 m"
+
+
+def test_nodes_outside_the_dem_are_counted_as_missing(tmp_path):
+    """And once they are NaN, add_walk_time reports them instead of inventing a slope."""
+    path = tmp_path / "dem.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=4, width=4, count=1, dtype="float32",
+        crs="EPSG:4326", transform=from_origin(8.0, 45.0, 0.01, 0.01),
+    ) as dst:
+        dst.write(np.full((4, 4), 100.0, dtype="float32"), 1)
+
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = "EPSG:4326"
+    G.add_node(1, x=8.02, y=44.98)
+    G.add_node(2, x=8.50, y=44.98)
+    G.add_edge(1, 2, 0, length=500.0, highway="residential")
+
+    summary = add_walk_time(G, path, FLAT)
+    assert summary["missing_elevation"] == 1
+    assert G[1][2][0]["slope"] == 0.0
+    assert summary["clamped"] == 0, "a coverage gap must not masquerade as a cliff"
+
+
+def test_dem_nodata_sentinel_is_outside_any_real_elevation():
+    assert DEM_NODATA < -1000.0
