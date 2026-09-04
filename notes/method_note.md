@@ -15,7 +15,7 @@ and Genova already diverge sharply on what can be observed at all:
 
 | | Rotterdam | Genova |
 |---|---|---|
-| **Mean pedestrian gradient** | **0.044** | **0.103** |
+| **Mean pedestrian gradient** | **0.048** | **0.113** |
 | **Stairways, share of network** | **0.9%** | **4.7%** |
 | **OSM sidewalk data** | **none usable** (§4a) | **none usable** (§4d) |
 | **`maxspeed` on roads** | **79.3%** | **9.4%** |
@@ -370,15 +370,48 @@ width.
 
 The denominator is therefore the *same* corridor construction applied to every
 street within Euclidean radius, reachable or not, so the buffer appears in both
-terms and cancels. Verified rather than assumed, via `--check-buffer`:
+terms and largely cancels.
 
-| half-width | 5 min | 10 min | 15 min |
+It does not cancel exactly, and an earlier version of this section said it did.
+The check behind that claim ran two widths — 20 m and 40 m — in Rotterdam only,
+found a maximum drift of 0.026, and concluded that "the construction does what
+it was designed to do". Its output was never committed, so the figure could not
+be re-derived, and `--check-buffer`'s help text hardened the finding into a
+claim that the buffer *cancels*.
+
+Two widths in the flatter of the two cities do not support that. 40 → 80 m moves
+the measure further than 40 → 20 m does, so a halving understates the range, and
+Genova — absent from the original check — is about twice as sensitive as
+Rotterdam at every threshold. Swept over 10/20/40/80 m:
+
+| span as % of the 40 m value | 5 min | 10 min | 15 min |
 |---|---|---|---|
-| 20 m | 0.334 | 0.439 | 0.494 |
-| 40 m | 0.360 | 0.450 | 0.500 |
+| Genova | **56.0%** | 24.8% | 16.5% |
+| Rotterdam | 27.9% | 11.6% | 6.4% |
 
-Maximum drift **0.026**, against **0.40** for the area-based metric over a
-comparable sweep. The construction does what it was designed to do.
+**The level is not identified.** The movement is monotone in width and largest at
+short thresholds, where the buffer is the biggest share of a short corridor.
+`reach_ratio` has no such parameter by construction; `pop_reach_ratio` inherits
+one, and this note previously did not distinguish the two measures.
+
+The cross-city gap is the robust quantity, though less so than a two-point check
+implies:
+
+| gap (Rotterdam − Genova) | 10 m | 20 m | 40 m | 80 m | span |
+|---|---|---|---|---|---|
+| 5 min | 0.1309 | 0.1252 | 0.1154 | 0.1021 | 25.0% |
+| 10 min | 0.1363 | 0.1356 | 0.1276 | 0.1135 | 17.9% |
+| 15 min | 0.1372 | 0.1371 | 0.1293 | 0.1118 | 19.6% |
+
+Rotterdam exceeds Genova at every width and threshold, so the **ordering is safe
+and the magnitude carries an interval**. The width enters both cities the same
+way, which is why the difference survives what the levels do not.
+
+Population levels are therefore reported as the identified set over the width —
+`pop_reach_ratio_lo/hi`, in the same idiom as `ssr_index_lo/hi` — and no figure
+in this section deserves three decimal places: the third is a corridor-width
+choice. This remains far milder than the area-based metric it replaced, which
+moved **0.40** over a comparable sweep. Milder is not cancellation.
 
 ### Two caveats
 
@@ -717,41 +750,137 @@ is finer (25 m against 30 m) but its tiles are 4.8 GB and the two cities fall in
 different ones. Since slope is rise over *segment* length and OSM segments run
 20-100 m, 30 m sampling is already finer than the variation that matters. The
 tiles are Cloud Optimized GeoTIFFs, so only each city's bounding box is fetched
-over range requests: **1.2 MB for Rotterdam, 2.2 MB for Genova**.
+over range requests: **1.3 MB for Rotterdam, 3.0 MB for Genova**, mosaicked
+across every one-degree tile the padded box intersects — two for each of these
+cities, and four for Krakow.
 
 **Method.** Elevation is sampled at every network node; per-edge gradient is
 rise over length; Tobler's hiking function converts gradient to speed, rescaled
 so level ground returns the 3.6 km/h child pace declared in config. The graph is
 directed, so climbing to a school and walking home are different costs.
 
+### A fifth of Genova was missing from the DEM
+
+The original implementation chose one Copernicus tile from the centre of each
+city's bounding box. The tiles are one degree square; Genova's padded box spans
+8.646 to 9.116 E and needs two. Everything east of 9 degrees — **50.4 km²,
+20.9% of the municipality, median true elevation 355 m** — lay outside the tile
+that was fetched.
+
+Nothing failed. `rasterio` clips a window that overruns its dataset rather than
+raising, so the cached raster was silently truncated. Worse, the Copernicus
+GeoTIFFs declare no nodata value, so GDAL returns `0.0` for any sample outside
+coverage — and `0.0` is a wholly plausible elevation for a port city. The gap
+was therefore invisible to the diagnostic built to catch it: elevations came
+back finite, so `missing_elevation` read zero on every run. Eastern Genova was
+not recorded as unknown. It was recorded as sea level.
+
+Two consequences, in opposite directions. Inside the truncated zone genuinely
+steep ground was routed flat, overstating reach. At the tile edge, nodes at
+several hundred metres met fabricated neighbours at 0 m, and the resulting
+gradients were absorbed by the 1-in-2 clamp — so the artefact surfaced in the
+clamp rate rather than as an error. **21 of 295 Genova schools (7.1%)** stood in
+the affected zone, at true elevations up to 222 m, 11 of them above 50 m.
+
+The fix mosaics every tile a padded box intersects, writes an explicit nodata
+sentinel so a gap can never again read as sea level, and marks samples outside
+coverage as missing rather than as ground.
+
+**Rotterdam is unaffected.** Its boundary reaches 51.9943 N, just short of the
+tile edge, so only the 2 km analysis pad crossed and no street node lay in the
+uncovered sliver; its published DEM range of −18 to 33 m reproduces exactly.
+Among the extension candidates, **Krakow would have been worst hit** — it
+crosses both 20 E and 50 N, so one tile of the four it needs would have covered
+a quarter of the city.
+
 ### The terrain itself
 
-| | Rotterdam | Genova |
-|---|---|---|
-| DEM range | -18 to 33 m | 0 to 1,181 m |
-| mean \|gradient\| | 0.044 | **0.103** |
-| p90 \|gradient\| | 0.119 | **0.300** |
-| stairways given the minimum gradient | 1,567 | **5,295** |
-| gradients clamped as surface-model artefacts | 754 (0.6%) | 3,816 (3.7%) |
+| | Rotterdam | Genova (published) | Genova (revised) |
+|---|---|---|---|
+| DEM range | −18 to 33 m | 0 to 1,181 m | 0 to 1,181 m |
+| mean \|gradient\| | 0.048 | 0.103 | **0.113** |
+| p90 \|gradient\| | 0.126 | 0.300 | 0.300 |
+| stairways given the minimum gradient | 1,509 | 5,295 | 6,396 |
+| gradients clamped as surface-model artefacts | 894 (0.7%) | 3,816 (3.7%) | 3,982 (3.9%) |
+| nodes with no elevation | 0 | 0 (reported) | **0 (verified)** |
+
+Genova's mean pedestrian gradient rises about 10%: the restored eastern
+hinterland is steep, and it had been averaged in as level ground. The clamp rate
+rose rather than fell, which was not expected — removing the fabricated cliff
+removes clamped edges, but the 50 km² it exposes holds far more genuinely steep
+ground than that thin line of artefact ever contributed. The clamp now measures
+surface-model noise on real terrain instead of partly measuring a data gap.
 
 ### The result
 
 `reach_ratio` at 10 minutes:
 
-| | flat model | slope-aware | change |
+| | flat model | slope-aware (published) | slope-aware (revised) |
 |---|---|---|---|
-| Rotterdam | 0.508 | 0.462 | −9.0% |
-| Genova | 0.481 | **0.305** | **−36.6%** |
+| Rotterdam | 0.507 | 0.462 | 0.459 |
+| Genova | 0.482 | 0.305 | **0.296** |
 
-**The gap between the two cities was understated 5.8-fold.** Under the flat
-model Rotterdam exceeded Genova by 0.027 — close enough to read as noise. With
-terrain the gap is 0.157. The flat assumption was not producing a slightly
-optimistic Genova figure; it was concealing almost the entire difference between
-the two cities.
+Across thresholds, revised against published:
 
-Genova's disadvantage also *compounds at short range*: 0.257 at 5 minutes rising
-to 0.350 at 15, against Rotterdam's much flatter 0.447 / 0.462 / 0.480. The
-walk that matters most for a young child is the one terrain penalises hardest.
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| Rotterdam | 0.445 (was 0.447) | 0.459 (was 0.462) | 0.478 (was 0.480) |
+| Genova | 0.250 (was 0.257) | **0.296** (was 0.305) | 0.339 (was 0.350) |
+| **gap** | **0.196** (was 0.190) | **0.163** (was 0.157) | **0.139** (was 0.130) |
+
+Rotterdam moves −0.003 at 10 minutes with a DEM that was already correct, so
+that is the drift in OSM and library versions since the original run. Genova
+moves −0.009 over the same interval: roughly one third drift, two thirds the DEM
+correction. **The gap widens at every threshold.** Genova is harder to walk than
+previously reported, not easier — the direction the defect implied, since a
+fifth of the city had been flattened.
+
+Genova's disadvantage still *compounds at short range*: 0.250 at 5 minutes
+rising to 0.339 at 15, against Rotterdam's much flatter 0.445 / 0.459 / 0.478.
+The walk that matters most for a young child is the one terrain penalises
+hardest.
+
+### The multiplier does not survive being recomputed
+
+The published figure — that the gap was understated **5.8-fold** — divides the
+slope-aware gap by the flat one. Recomputing both on the same run, at all three
+thresholds rather than only at ten minutes:
+
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| Rotterdam, flat | 0.4881 | 0.5068 | 0.5236 |
+| Genova, flat | 0.4008 | 0.4818 | 0.5317 |
+| **flat gap** | 0.0873 | 0.0250 | **−0.0081** |
+| slope gap | 0.1955 | 0.1628 | 0.1389 |
+| **ratio** | **2.24×** | **6.51×** | **−17.22×** |
+
+The same data and the same code give 2.2, 6.5 or −17 depending only on which
+threshold is read. At fifteen minutes the flat gap changes sign: routed on flat
+distance Genova scores *above* Rotterdam, which is credible — the centro storico
+has a very dense network — but it leaves the ratio undefined in the
+neighbourhood of the reporting range.
+
+This is not a consequence of the DEM correction. The flat model does not read
+the DEM and reproduces almost exactly: 0.5068 and 0.4818 here against 0.508 and
+0.481 as published. The instability is structural. **The ratio divides by a
+quantity close to zero that crosses zero between the ten- and fifteen-minute
+thresholds**, and ten minutes is simply where the denominator was small but
+still positive. Because the note reported flat figures at ten minutes only, the
+sign change was never visible.
+
+**The multiplier is therefore withdrawn rather than corrected.** Replacing 5.8×
+with 6.5× would preserve the defect. The gap is the stable statistic and carries
+the same argument:
+
+> Routed on flat distance, the two cities sit 0.025 apart at ten minutes. Routed
+> on walking time over real terrain, they sit 0.163 apart. The flat assumption
+> was not producing a slightly optimistic Genova figure; it was concealing
+> almost the entire difference between the two cities.
+
+That holds at every threshold — the gap is 0.196, 0.163 and 0.139 at five, ten
+and fifteen minutes, consistently signed and varying smoothly. Any ratio built
+on the flat gap must carry its threshold and show its denominator, or not be
+reported.
 
 ### Weighted by residents, the effect is larger still
 
@@ -759,17 +888,58 @@ Population was recomputed on the same terrain-adjusted routing, since reporting
 residents for catchments a child cannot reach would defeat the exercise. At 10
 minutes:
 
-| | Rotterdam | Genova |
-|---|---|---|
-| median residents reachable, flat | 2,647 | 5,365 |
-| median residents reachable, slope | 2,470 (−6.7%) | **3,240 (−39.6%)** |
-| `pop_reach_ratio`, flat | 0.450 | 0.440 |
-| `pop_reach_ratio`, slope | 0.418 (−7.1%) | **0.292 (−33.6%)** |
+| | Rotterdam | Genova (published) | Genova (revised) |
+|---|---|---|---|
+| median residents reachable, slope | 2,417 (was 2,470) | 3,240 | 3,162 |
+| `pop_reach_ratio`, flat | 0.450 | 0.440 | 0.440 |
+| `pop_reach_ratio`, slope | 0.413 (was 0.418) | 0.292 | **0.285** |
 
-**The population-weighted gap was understated 12.6-fold** — from 0.010 to 0.126,
-worse than the 5.8× on the node measure. Weighting by where people live
+Across thresholds, Genova revised against published:
+
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| `pop_reach_ratio` | 0.217 (was 0.221) | **0.285** (was 0.292) | 0.331 (was 0.340) |
+| median residents reachable | 881 (was 905) | 3,162 (was 3,240) | 7,122 (was 7,420) |
+
+**The population-weighted gap is essentially unchanged**: 0.126 as published,
+0.1276 recomputed. The DEM correction moves both cities slightly and the
+difference between them barely shifts. Weighting by where people live still
 amplifies the terrain effect, because Genova's hillside neighbourhoods are
 densely populated: the steep ground is not empty.
+
+**The 12.6× multiplier is withdrawn on the same grounds as the 5.8×.**
+Recomputing the flat and slope-aware population gaps together:
+
+| | 5 min | 10 min | 15 min |
+|---|---|---|---|
+| Rotterdam, flat | 0.3599 | 0.4498 | 0.4982 |
+| Genova, flat | 0.3332 | 0.4404 | 0.5035 |
+| **flat gap** | +0.0268 | +0.0094 | **−0.0053** |
+| slope gap | +0.1155 | +0.1276 | +0.1293 |
+| **ratio** | **4.31×** | **13.60×** | **−24.31×** |
+
+The flat figures reproduce closely — 0.4498 and 0.4404 against 0.450 and 0.440
+as published — so this is not an artefact of the re-run. The population
+denominator at ten minutes is 0.0094, smaller still than the 0.0250 on the node
+measure, so the ratio is correspondingly more sensitive; and it changes sign
+between ten and fifteen minutes in the same way.
+
+Both multipliers behave this way for one reason, and it is a finding rather than
+a nuisance. **Routed on flat distance, the two cities' curves cross.** Genova
+starts below Rotterdam at five minutes and ends above it at fifteen, on both the
+node and the population measure. Ignore terrain and Genova's dense network lets
+it overtake as the radius grows. The flat gap is not a stable baseline that
+terrain widens; it is a quantity passing through zero inside the reporting
+range, and any ratio against it inherits that. What terrain changes is not the
+size of a known gap but whether the gap exists at all.
+
+The defensible statement is the one the gaps support at every threshold:
+
+> Routed on flat distance the two cities are indistinguishable at ten minutes —
+> 0.0094 apart on residents reached, and crossing over by fifteen. Routed on
+> walking time over real terrain they are 0.128 apart, in the same direction at
+> every threshold. Terrain does not widen a known gap; it is what makes the gap
+> visible at all.
 
 The starkest reading is the raw count. Under the flat model each Genovese school
 appeared to serve roughly twice as many residents within a ten-minute walk as
@@ -812,9 +982,16 @@ times would be the proper check.
 
 **GLO-30 is a surface model**, including buildings and vegetation. A street node
 beside a tall building can sample a rooftop and fabricate a cliff, which is why
-gradients are clamped at 1-in-2 — but the clamp fires on 3.7% of Genova's edges,
+gradients are clamped at 1-in-2 — but the clamp fires on 3.9% of Genova's edges,
 which is high enough to matter. A terrain model would be preferable where one is
 available at comparable cost.
+
+**Coverage is now checked rather than assumed.** The DEM is assembled from
+every tile the analysis window intersects, gaps carry an explicit nodata value,
+and nodes outside coverage are counted as missing rather than silently given an
+elevation. The count is reported per run. The defect this replaces was
+undetectable from the outputs: it produced plausible elevations, plausible
+gradients and no warning.
 
 **Stairs are assigned a minimum 30% gradient** where the DEM smooths them
 flatter, because a 30 m cell cannot resolve a single flight. That figure is a
@@ -860,6 +1037,49 @@ This was found by writing the test suite, not by inspection — see §6.
 network it returns a class constant.
 
 **The reach_ratio outlier is unresolved** — see §2a.
+
+**The one supported cross-city claim compares classification, not streets.**
+`02b_comparative_index.py` restricts both cities to the indicators they share
+and refuses any claim whose identified sets overlap. Exactly one comparison
+survives — Genova 0.789 against Rotterdam 0.811, margin 0.0225, clearing both
+the separation test and the 0.01 negligible-margin gate — and it compares
+nothing that was measured.
+
+Harmonisation drops every genuinely observed indicator: `s_speed` is tagged on
+79.98% of Rotterdam's roads and 9.35% of Genova's, `s_sidewalk` 18.8% against
+28.2%, `s_lit` and `s_green` nowhere. The shared set collapses to `s_highway`,
+which is `HIGHWAY_SCORE[highway_class]` — a lookup on the tag that already
+defines the class. Every class therefore scores identically in both cities and
+only the class proportions differ. Decomposing the aggregate difference gives a
+within-class term of **0.000000** against a composition term of **−0.062635**:
+**100% of the gap is road-class mix.**
+
+No existing gate could catch this, and the reason generalises. The surviving
+indicator is built to pass them: present on 100% of segments, so no coverage
+threshold excludes it; never unobserved, so the identified set is degenerate
+(`lo == hi`) and separation is automatic; identical per class everywhere, so it
+cannot be flagged as divergent. **A quantity that is never missing cannot
+express doubt**, and its clean separation is a property of that rather than
+evidence about streets.
+
+The detector added is a decomposition rather than a list of indicator names: a
+name list must be maintained by hand and flags on what an indicator is called,
+where the within-class term flags on what it does. This does not repair the
+estimation. The repair is an independent speed source for Genova — the Comune's
+grafo stradale — or accepting that the street-scale cross-city index does not
+yet exist and declining to report one.
+
+**Cross-city claims at the street scale are therefore currently unsupported.**
+The neighbourhood-scale results are not affected: `reach_ratio`,
+`pop_reach_ratio` and the terrain finding depend on the network and the DEM, not
+on the sparse OSM indicators.
+
+**Single-run figures have no reproducibility check.** The DEM defect survived
+because no result had ever been recomputed from scratch and compared. It was
+found by re-running the pipeline on a different machine, not by any test or
+diagnostic here. A periodic full re-run, diffed against the committed tables,
+would have caught it in one pass and is the cheapest safeguard against the next
+defect of this kind.
 
 **One city is not a comparison.** Every cross-city claim in §1 is a design
 argument, not yet a result. The harmonisation matrix needs the other three
