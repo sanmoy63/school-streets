@@ -64,6 +64,16 @@ SEPARATION_EPS = 1e-9
 # below that cannot reflect a distinction the index is capable of drawing.
 NEGLIGIBLE_MARGIN = 0.01
 
+# Below this a within-class difference is floating-point noise rather than a
+# measured distinction. The scores it separates come from a lookup whose finest
+# step is 0.05, so nothing real lives six orders of magnitude beneath that.
+COMPOSITION_EPS = 1e-9
+
+# The row in `summarise` that aggregates over classes. Only this row can carry a
+# composition effect: a per-class comparison holds the class fixed, so its whole
+# gap is within-class by construction.
+AGGREGATE_LABEL = "all (excl. service)"
+
 
 def summarise(
     segs: gpd.GeoDataFrame, city: str, indicators: set[str]
@@ -109,6 +119,58 @@ def summarise(
     return pd.DataFrame(rows)
 
 
+def decompose_gap(summary: pd.DataFrame, cls_a: str, cls_b: str,
+                  aggregate: str) -> tuple[float, float]:
+    """Split a between-city difference into within-class and composition parts.
+
+    Returns ``(within, composition)``. The first is what the indicators actually
+    measured differently on comparable streets; the second is what follows from
+    the two cities holding different proportions of each road class.
+
+    This is the test for a vacuous comparison, and it is computed rather than
+    declared. A surviving indicator that is a lookup on `highway_class` scores
+    every class identically in every city, so every within-class difference is
+    exactly zero and the entire gap is composition -- no matter what the
+    indicator is called. An indicator that genuinely varies within a class
+    produces a non-zero within term and the comparison is about streets again.
+
+    Both terms use the two-city mean as the reference weight and score, so the
+    split does not depend on which city is called `a`.
+    """
+    per_class = summary[summary["class"] != aggregate]
+    if aggregate != AGGREGATE_LABEL:
+        raise ValueError(
+            f"decompose_gap is only meaningful for {AGGREGATE_LABEL!r}; a "
+            f"per-class comparison holds the class fixed and has no "
+            f"composition component. Got {aggregate!r}."
+        )
+    a = per_class[per_class["city"] == cls_a].set_index("class")
+    b = per_class[per_class["city"] == cls_b].set_index("class")
+    shared = a.index.intersection(b.index)
+    if shared.empty:
+        return float("nan"), float("nan")
+
+    wa = a.loc[shared, "n"] / a.loc[shared, "n"].sum()
+    wb = b.loc[shared, "n"] / b.loc[shared, "n"].sum()
+    sa, sb = a.loc[shared, "index_"], b.loc[shared, "index_"]
+
+    within = float((((wa + wb) / 2) * (sa - sb)).sum())
+    composition = float(((wa - wb) * ((sa + sb) / 2)).sum())
+
+    # `summarise` emits rows only for REPORT_CLASSES, while the aggregate covers
+    # every non-service class. The decomposition therefore describes a subset,
+    # and its two terms do not sum to the reported aggregate gap. Say so rather
+    # than letting a reader assume they should reconcile.
+    covered = (
+        a.loc[shared, "n"].sum() + b.loc[shared, "n"].sum()
+    ) / (
+        summary.loc[(summary["city"] == cls_a) & (summary["class"] == aggregate), "n"].sum()
+        + summary.loc[(summary["city"] == cls_b) & (summary["class"] == aggregate), "n"].sum()
+    )
+    log.debug("decomposition covers %.1f%% of the aggregate's segments", 100 * covered)
+    return within, composition
+
+
 def claims(summary: pd.DataFrame) -> pd.DataFrame:
     """For each city pair and class: does the evidence support a difference?
 
@@ -125,6 +187,24 @@ def claims(summary: pd.DataFrame) -> pd.DataFrame:
             # the two point estimates can be reversed by values the data never
             # ruled out, so there is no difference to report.
             margin = max(a.lo - b.hi, b.lo - a.hi)
+            # What the comparison actually rests on. A pair can separate
+            # cleanly, clear the negligible-margin test, and still be comparing
+            # nothing but road-class composition. Measured, not declared: the
+            # within-class term is what the indicators found to differ on
+            # comparable streets, and where it is zero the gap is entirely a
+            # difference in road-class mix. Recording the split beside the
+            # verdict makes that readable in this table rather than only to
+            # someone who cross-reads two files.
+            if cls == AGGREGATE_LABEL:
+                within, comp = decompose_gap(summary, a.city, b.city, cls)
+            else:
+                # Same class in both cities: nothing can be attributed to a
+                # difference in class shares, so the gap is within-class by
+                # definition. Decomposing here would silently split it over the
+                # OTHER classes and report a number about the wrong streets.
+                within, comp = gap, 0.0
+            total = abs(within) + abs(comp)
+            comp_share = (abs(comp) / total) if total > COMPOSITION_EPS else float("nan")
             rows.append(
                 {
                     "class": cls,
@@ -142,6 +222,19 @@ def claims(summary: pd.DataFrame) -> pd.DataFrame:
                     # unsupported one.
                     "negligible": bool(
                         SEPARATION_EPS < margin <= NEGLIGIBLE_MARGIN
+                    ),
+                    "indicators": a.indicators,
+                    "within_class": round(within, 6),
+                    "composition": round(comp, 6),
+                    "composition_share": (
+                        round(comp_share, 4) if comp_share == comp_share else None
+                    ),
+                    # Qualifies a supported claim the same way `negligible`
+                    # does: the separation is real, and it is a separation in
+                    # how the two cities' roads are classified, not in what was
+                    # measured on them.
+                    "composition_only": bool(
+                        total > COMPOSITION_EPS and abs(within) <= COMPOSITION_EPS
                     ),
                 }
             )
@@ -255,6 +348,17 @@ def main(city_keys: list[str] | None, keep_suspect: bool = False) -> None:
         "The rest are differences the data cannot distinguish from missingness.",
         n_ok, len(cl),
     )
+    n_comp = int((cl["supported"] & cl["composition_only"]).sum())
+    if n_comp:
+        log.warning(
+            "%d supported comparison(s) have a within-class difference of zero: "
+            "100%% of the gap is road-class MIX, not anything measured on the "
+            "streets. Every surviving indicator scores each class identically "
+            "in both cities, so the identified set is degenerate (lo == hi) as "
+            "well -- a quantity that is never missing cannot express doubt. "
+            "Report these as a comparison of classification, or not at all.",
+            n_comp,
+        )
     n_negl = int(cl["negligible"].sum())
     if n_negl:
         log.warning(

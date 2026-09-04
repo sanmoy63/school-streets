@@ -367,3 +367,105 @@ def test_coverage_without_segments_is_detected():
     cov = coverage_rows(rotterdam={"s_highway": 1.0}, genova={"s_highway": 1.0})
     frames = {"rotterdam": roads(4)}
     assert harmonise.city_set_mismatch(cov, frames)["missing_segments"] == {"genova"}
+
+
+# ---------------------------------------------------------------------------
+# 4. A comparison can separate cleanly and still compare nothing
+#
+# When harmonisation drops every genuinely observed indicator -- s_speed is
+# tagged on 79.98% of Rotterdam's roads and 9.35% of Genova's -- the comparable
+# set collapses to s_highway alone. That indicator is a lookup on the OSM
+# highway tag: present everywhere so no coverage gate excludes it, never
+# unobserved so the identified set is degenerate, identical per class in every
+# city so it cannot diverge.
+#
+# The committed comparative_claims.csv shows the consequence: Genova 0.789
+# against Rotterdam 0.811, margin 0.0224, clearing both SEPARATION_EPS and the
+# 0.01 negligible-margin gate, recorded as supported. Measured on real data the
+# within-class term is exactly 0.00000 and composition is -0.06263: the whole
+# difference is road-class mix.
+#
+# The detector is a decomposition, not a list of indicator names. A name list
+# has to be maintained by hand and flags on what an indicator is called; the
+# decomposition flags on what it does, and catches a future proxy nobody
+# thought to add.
+# ---------------------------------------------------------------------------
+
+
+def _script(name):
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        name, Path(__file__).resolve().parents[1] / "scripts" / f"{name}.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _summary(score_g, score_r, n_g, n_r, aggregate_gap=0.0225):
+    """Two cities over two classes, with per-class scores and shares given."""
+    rows = []
+    for city, sc, n in (("genova", score_g, n_g), ("rotterdam", score_r, n_r)):
+        agg = sum(s * c for s, c in zip(sc, n)) / sum(n)
+        rows.append({"city": city, "class": "all (excl. service)",
+                     "n": sum(n), "index_": agg, "lo": agg, "hi": agg,
+                     "indicators": "x"})
+        for cls, s, c in zip(("residential", "primary"), sc, n):
+            rows.append({"city": city, "class": cls, "n": c, "index_": s,
+                         "lo": s, "hi": s, "indicators": "x"})
+    return pd.DataFrame(rows)
+
+
+def test_identical_per_class_scores_decompose_to_pure_composition():
+    """The regression: same scores, different mix -> gap is entirely composition."""
+    mod = _script("02b_comparative_index")
+    summary = _summary(score_g=(0.75, 0.05), score_r=(0.75, 0.05),
+                       n_g=(4893, 806), n_r=(6617, 141))
+    within, comp = mod.decompose_gap(summary, "genova", "rotterdam",
+                                     "all (excl. service)")
+    assert within == pytest.approx(0.0, abs=1e-12), "nothing measured differs"
+    assert abs(comp) > 0.01, "and yet the aggregate gap is real"
+
+
+def test_a_real_within_class_difference_is_not_composition():
+    """A measured difference on comparable streets must not be flagged."""
+    mod = _script("02b_comparative_index")
+    summary = _summary(score_g=(0.60, 0.05), score_r=(0.75, 0.05),
+                       n_g=(5000, 500), n_r=(5000, 500))
+    within, comp = mod.decompose_gap(summary, "genova", "rotterdam",
+                                     "all (excl. service)")
+    assert within < -0.01, "the within-class term must carry the difference"
+    assert comp == pytest.approx(0.0, abs=1e-12), "shares are identical here"
+
+
+def test_claims_flags_a_composition_only_comparison_that_separates():
+    mod = _script("02b_comparative_index")
+    summary = _summary(score_g=(0.75, 0.05), score_r=(0.75, 0.05),
+                       n_g=(4893, 806), n_r=(6617, 141))
+    row = mod.claims(summary).query("`class` == 'all (excl. service)'").iloc[0]
+    assert row["supported"], "degenerate intervals do separate"
+    assert not row["negligible"], "the margin clears 0.01"
+    assert row["composition_only"], "and yet it compares only road-class mix"
+    assert row["composition_share"] == pytest.approx(1.0)
+
+
+def test_claims_does_not_flag_a_measured_difference():
+    mod = _script("02b_comparative_index")
+    summary = _summary(score_g=(0.60, 0.05), score_r=(0.75, 0.05),
+                       n_g=(5000, 500), n_r=(5000, 500))
+    row = mod.claims(summary).query("`class` == 'all (excl. service)'").iloc[0]
+    assert not row["composition_only"]
+    assert row["composition_share"] == pytest.approx(0.0)
+
+
+def test_decomposition_is_symmetric_in_city_order():
+    """The split must not depend on which city is called `a`."""
+    mod = _script("02b_comparative_index")
+    summary = _summary(score_g=(0.60, 0.05), score_r=(0.75, 0.20),
+                       n_g=(4000, 900), n_r=(6000, 200))
+    w1, c1 = mod.decompose_gap(summary, "genova", "rotterdam", "all (excl. service)")
+    w2, c2 = mod.decompose_gap(summary, "rotterdam", "genova", "all (excl. service)")
+    assert w1 == pytest.approx(-w2)
+    assert c1 == pytest.approx(-c2)

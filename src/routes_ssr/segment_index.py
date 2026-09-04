@@ -119,6 +119,27 @@ INDICATOR_KIND = {
 
 PRESENCE_ONLY = frozenset(k for k, v in INDICATOR_KIND.items() if v == "presence_only")
 
+# Why a cross-city difference can separate cleanly and mean nothing.
+#
+# `s_highway` is `HIGHWAY_SCORE[highway_class]` -- a lookup on the OSM tag that
+# already defines the class. It has three properties that let it pass every
+# quality gate here while carrying no evidence: present on 100% of segments, so
+# no coverage threshold excludes it; never unobserved, so it never widens an
+# identified set; identical per class in every city, so it cannot diverge.
+#
+# When harmonisation drops every genuinely observed indicator -- `s_speed` is
+# tagged on 79.98% of Rotterdam's roads and 9.35% of Genova's -- the comparable
+# set collapses to this alone, and the cross-city index then compares nothing
+# but the two cities' road-class mix.
+#
+# The test for that is NOT a list of indicator names. Naming them means
+# maintaining an allowlist by hand and flagging on what an indicator is called
+# rather than on what it does. The property is measurable: decompose a
+# between-city difference into the part from differing scores WITHIN a class and
+# the part from differing class SHARES. Where the within-class term is zero,
+# nothing that was measured differs, and the whole gap is composition -- however
+# the surviving indicators happen to be named. See `decompose_gap`.
+
 # A presence-only layer's non-detections may be read as real zeros only once its
 # detection rate has been estimated at or above this level. 0.90 is where the
 # Rotterdam/Genova traffic-safety intervals first separate under the bounds
