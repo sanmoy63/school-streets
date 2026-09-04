@@ -127,6 +127,22 @@ def build_city(key: str) -> dict | None:
             "pop_median": _safe_median(schools["pop_reachable"]),
             "pop_reach_mean": _safe_mean(schools["pop_reach_ratio"]),
         },
+        "takeaway": (
+            "In Rotterdam, tag completeness is high: 100% of candidate streets (560) are confirmed infrastructure priorities. "
+            "Sidewalks exist primarily as separate footway geometries (3,551 km of roads vs 0 km inline tags)."
+            if key == "rotterdam"
+            else
+            "In Genova, 70% of candidate streets (1,679 of 2,406) are data-deficient candidates rather than confirmed failures, "
+            "due to missing speed limits (9.4% tagged) and sidewalk tags. Vertical topography drops walkable school reach to 0.305."
+        ),
+        "audit_insight": (
+            "Rotterdam imagery audit shows 0% open coverage on sampled untagged links (Wilson 95% bound ≤ 2.1%). "
+            "Dense municipal cycleway and separate footway mapping prevents conflation errors."
+            if key == "rotterdam"
+            else
+            "Genova imagery audit shows 0% open coverage on sampled untagged links (Wilson 95% bound ≤ 2.4%). "
+            "Car cameras cannot access historic pedestrian creuse, alleys, and stairways where children actually walk."
+        ),
     }
     log.info(
         "%s: %d schools, %d worst streets (%d confirmed, %d candidate), reach %.3f",
@@ -335,6 +351,12 @@ _TEMPLATE = r"""<!DOCTYPE html>
    __BUTTONS__
   </div>
 
+  <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);">
+   <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</div>
+   <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">&mdash;</p>
+   <div style="font-size:11px; line-height:1.45; color:var(--slate-600); margin-top:8px; border-top:1px dashed rgba(74,20,134,0.2); padding-top:6px;" id="city-audit-body">&mdash;</div>
+  </div>
+
   <div class="card">
    <div class="card-title">City Network Overview</div>
    <div class="grid-stats">
@@ -356,14 +378,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div class="legend-icon" style="background:#b30000;"></div>
     <div>
      <b style="color:#b30000;">Confirmed Intervention Priorities</b><br>
-     <span class="sub">$\text{ssr\_index\_hi} \le 0.20$ &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
+     <span class="sub">ssr_index_hi &le; 0.20 &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
     </div>
    </div>
    <div class="legend-item">
     <div class="legend-icon" style="background:#d97706;"></div>
     <div>
      <b style="color:#d97706;">Data-Deficient Candidates</b><br>
-     <span class="sub">$\text{index} \le 0.20$ but $\text{hi} > 0.20$ &mdash; flagged by default penalties; target for audit, not civil works.</span>
+     <span class="sub">index &le; 0.20 but hi &gt; 0.20 &mdash; flagged by default penalties; target for audit, not civil works.</span>
     </div>
    </div>
    <div class="legend-item">
@@ -385,22 +407,26 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
 
   <div class="card" style="display:flex; flex-direction:column; gap:10px;">
-   <div class="card-title">Methodological Findings</div>
+   <div class="card-title">Methodological Insights &amp; Audit Results</div>
    <div class="note warn">
-    <b>Pavements are not measurable from OpenStreetMap.</b>
-    In Rotterdam <code>sidewalk</code> tags appear on 0 of 68,464 roads (footways are separate geometries), while Genova has partial inline tagging.
+    <b>Pavements are unobservable in standard OSM tags.</b>
+    In Rotterdam, <code>sidewalk</code> appears on 0 of 68,464 road ways because sidewalks are drawn as separate footway geometries. In Genova, inline sidewalk tags are sparsely recorded. Absence of tags indicates mapping style, not absence of physical pavements.
    </div>
    <div class="note warn">
-    <b>Traffic calming measures mapper activity, not street calming.</b>
-    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova ($28\times$ disparity from 3,806 vs 73 tags). These are detection lower bounds, not actual prevalence.
+    <b>Traffic calming measures mapper density, not street calming.</b>
+    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova (a $28\times$ disparity from 3,806 vs 73 tags). These are detection rates, not prevalence rates.
    </div>
    <div class="note">
-    <b>Terrain alters the accessibility reality.</b>
-    Flat planar routing understated the gap between Rotterdam and Genova by <b>5.8&times;</b> (and <b>12.6&times;</b> when resident-weighted). Vertical topography severely restricts walkable school access.
+    <b>Topography penalizes access far beyond distance.</b>
+    Planar distance suggested Rotterdam and Genova had comparable school reach (0.508 vs 0.481). Factoring elevation over a 30m DEM (Tobler's hiking function) reveals a <b>5.8&times;</b> severance disparity (reach drops to 0.305 in Genova), expanding to <b>12.6&times;</b> when resident-weighted.
    </div>
    <div class="note">
-    <b>1 of 9 indicators survives cross-city comparison.</b>
-    When strictly filtering out indicators with &gt;20% missingness, only <code>highway_class</code> survives, scoring residential streets identically (0.750) across both cities.
+    <b>Street-level imagery cannot fill the gaps (Audit Findings).</b>
+    A stratified audit of open imagery (KartaView) across road classes yielded 0% coverage on untagged networks (Wilson 95% bound &le; 2.4%). Car-mounted cameras cannot navigate Genova's historic pedestrian <em>creuse</em>, alleys, and stairways—imputing attributes from imagery would create severe car-centric selection bias.
+   </div>
+   <div class="note">
+    <b>Identified sets prevent false cross-city claims.</b>
+    Because missing speed and sidewalk data create an uncertainty interval width of &sim;0.35, inter-city differences smaller than this width cannot be distinguished from missing-data bias. Only 1 of 9 indicators (<code>highway_class</code>) survives cross-city harmonisation.
    </div>
   </div>
 
@@ -595,6 +621,10 @@ function show(key){
   const s = c.stats;
   document.getElementById('stat-confirmed').textContent = (s.confirmed_n || 0).toLocaleString();
   document.getElementById('stat-candidate').textContent = (s.candidate_n || 0).toLocaleString();
+
+  document.getElementById('city-takeaway-title').innerHTML = c.name.split(',')[0] + ' &middot; Empirical Synthesis';
+  document.getElementById('city-takeaway-body').textContent = c.takeaway || '';
+  document.getElementById('city-audit-body').innerHTML = '<b>📷 Street Imagery Audit:</b> ' + (c.audit_insight || '');
 
   document.getElementById('stats-detail').innerHTML = `
     <tr><td class="k">Evaluated Schools</td><td class="v">${s.schools}</td></tr>
