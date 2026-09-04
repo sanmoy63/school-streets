@@ -51,7 +51,15 @@ def coverage_report(segments: gpd.GeoDataFrame, city_key: str) -> pd.DataFrame:
     comparable set, because ~52,000 car-free segments have no speed limit to
     observe. On the roads where the question is meaningful it is ~0.80.
     """
-    indicator_cols = [c for c in segments.columns if c.startswith(("s_", "d_"))]
+    # `d_<domain>_lo` / `_hi` carry the identified set, not an observation. They
+    # are always populated wherever the domain applies, so counting them here
+    # would report bounds as evidence and inflate the comparable set with
+    # columns no one measured.
+    indicator_cols = [
+        c
+        for c in segments.columns
+        if c.startswith(("s_", "d_")) and not c.endswith(("_lo", "_hi"))
+    ]
     applies = segment_index.applicability(segments)
     rows = []
 
@@ -135,7 +143,14 @@ def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
     # 4. Segment indicators + composite ------------------------------------
     edges = osm_extract.graph_to_edges(G)
     calming = osm_extract.fetch_traffic_calming(city, refresh=refresh)
-    segments = segment_index.build_segment_indicators(edges, calming=calming)
+    segments = segment_index.build_segment_indicators(
+        edges,
+        calming=calming,
+        # None unless this city's calming layer has been validated against an
+        # independent source -- see `indicator_completeness` in cities.yml.
+        # Without it, non-detections stay unobserved rather than becoming zeros.
+        calming_completeness=config.completeness("s_calming", city.key),
+    )
     segments = segment_index.composite_index(segments)
 
     # Flag segments falling inside any 10-minute school walkshed: these are the
@@ -154,7 +169,8 @@ def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
         or c
         in {
             "u", "v", "key", "osmid", "name", "highway_class", "length",
-            "maxspeed_kmh", "ssr_index", "coverage", "sidewalk_source",
+            "maxspeed_kmh", "ssr_index", "ssr_index_lo", "ssr_index_hi",
+            "coverage", "sidewalk_source",
             "is_service", "in_analysis_set", "in_school_catchment", "geometry",
         }
     ]
@@ -195,6 +211,15 @@ def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
             log.info(
                 "SSR index in catchments (%s): n=%6d mean %.3f  p10 %.3f  p90 %.3f",
                 label, len(vals), vals.mean(), vals.quantile(0.10), vals.quantile(0.90),
+            )
+            # The mean alone invites a cross-city comparison it may not support.
+            # The interval says how far the unobserved indicators could move it.
+            lo = segments.loc[mask, "ssr_index_lo"].mean()
+            hi = segments.loc[mask, "ssr_index_hi"].mean()
+            log.info(
+                "  identified set: [%.3f, %.3f] (width %.3f) -- a difference "
+                "smaller than this width is not distinguishable from missing data",
+                lo, hi, hi - lo,
             )
 
     rr = sheds.loc[sheds["minutes"] == 10, "reach_ratio"].dropna()

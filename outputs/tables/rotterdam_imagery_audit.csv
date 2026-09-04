@@ -1,0 +1,14 @@
+city,stratum,n_sampled,n_covered,coverage_rate,coverage_ci_lo,coverage_ci_hi,detected_signs,inferred_speed_n,inferred_speed_rate,inferred_speed_ci_lo,inferred_speed_ci_hi
+rotterdam,ALL_STRATIFIED,177,0,0.0,0.0,0.0212,0,0,0.0,0.0,0.0212
+rotterdam,busway,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,primary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,primary_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,residential,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,secondary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,secondary_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,service,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,tertiary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,tertiary_link,12,0,0.0,0.0,0.2425,0,0,0.0,0.0,0.2425
+rotterdam,trunk,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,trunk_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+rotterdam,unclassified,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039

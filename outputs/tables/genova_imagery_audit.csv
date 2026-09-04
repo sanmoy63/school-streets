@@ -1,0 +1,13 @@
+city,stratum,n_sampled,n_covered,coverage_rate,coverage_ci_lo,coverage_ci_hi,detected_signs,inferred_speed_n,inferred_speed_rate,inferred_speed_ci_lo,inferred_speed_ci_hi
+genova,ALL_STRATIFIED,158,0,0.0,0.0,0.0237,0,0,0.0,0.0,0.0237
+genova,primary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,primary_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,residential,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,secondary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,secondary_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,service,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,tertiary,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,tertiary_link,8,0,0.0,0.0,0.3244,0,0,0.0,0.0,0.3244
+genova,trunk,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,trunk_link,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039
+genova,unclassified,15,0,0.0,0.0,0.2039,0,0,0.0,0.0,0.2039

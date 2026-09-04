@@ -162,6 +162,8 @@ Then, optionally:
 
 ```bash
 python scripts/02_harmonisation_matrix.py     # cross-city comparability table
+python scripts/02b_comparative_index.py       # rebuild both cities on the shared
+                                              # indicator set, with identified sets
 python scripts/04_schoolyards.py rotterdam    # site-scale yard indicators
 python scripts/05_population.py rotterdam     # residents in catchments
 python scripts/03_map.py rotterdam            # full-detail map (~8 MB, not in git)
@@ -234,11 +236,21 @@ No number anywhere in this repository is derived from the *planned* sources.
 **Rotterdam and Genova are complete**, including slope-aware routing and
 population weighting. Candidates for extension are configured but not run.
 
-The cross-city machinery has real content: only **3 of 9 indicators survive both
-cities**, and one survivor (`s_calming`) is flagged as encoding mapping effort
-rather than street conditions (method note §4d). Meanwhile
-[`02_harmonisation_matrix.py`](scripts/02_harmonisation_matrix.py) says so on
-every run rather than implying a comparison exists.
+The cross-city machinery has real content: only **1 of 9 indicators survives both
+cities**. `s_calming` is a presence-only layer — it records features that exist
+and is silent everywhere else — so its non-detections are unobserved rather than
+zero, which drops its coverage from an apparent 100% to 17.15% in Rotterdam and
+0.62% in Genova. `s_speed` is tagged on 79.3% of Rotterdam's roads and 9.4% of
+Genova's. Both fail the comparability gate, leaving road classification alone.
+
+Built on that shared indicator,
+[`02b_comparative_index.py`](scripts/02b_comparative_index.py) scores every
+street class **identically** in the two cities — residential 0.750 against 0.750.
+The 0.221 gap previously reported between their residential streets was produced
+entirely by indicators one city had and the other did not, and is not evidence
+about streets. Each index now also carries an identified set: Genova's
+residential interval is `[0.494, 0.795]` against Rotterdam's `[0.771, 0.774]`,
+and where those overlap there is no claim to make.
 
 Known open items are listed in [`notes/method_note.md`](notes/method_note.md) §5,
 including where data could not be obtained — which is itself a result.

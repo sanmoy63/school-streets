@@ -1,7 +1,7 @@
 indicator,genova,rotterdam,min_coverage,comparable,binding_city
 d_traffic_safety,1.0,1.0,1.0,True,genova
 d_walking_infrastructure,0.181,0.146,0.146,False,rotterdam
-s_calming,1.0,1.0,1.0,True,genova
+s_calming,0.005,0.211,0.005,False,genova
 s_enclosure,0.0,0.0,0.0,False,genova
 s_green,0.0,0.0,0.0,False,genova
 s_highway,1.0,1.0,1.0,True,genova

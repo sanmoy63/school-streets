@@ -118,3 +118,17 @@ def params(section: str) -> dict[str, Any]:
     if section not in cfg:
         raise KeyError(f"No {section!r} section in {CONFIG_PATH}")
     return cfg[section]
+
+
+def completeness(indicator: str, city_key: str) -> float | None:
+    """Estimated detection rate of a presence-only layer, or ``None``.
+
+    ``None`` is the honest default and the common case: it means nobody has
+    measured how much of the real world this layer captures here, so a
+    non-detection cannot be read as an absence. Missing config, a missing
+    indicator and an explicit null all mean the same thing, and all return
+    ``None`` -- a completeness claim has to be made deliberately.
+    """
+    cfg = load_config().get("indicator_completeness") or {}
+    value = (cfg.get(indicator) or {}).get(city_key)
+    return None if value is None else float(value)

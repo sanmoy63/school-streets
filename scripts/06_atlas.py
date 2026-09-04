@@ -228,9 +228,15 @@ _TEMPLATE = r"""<!DOCTYPE html>
    30 km of footway is explicitly tagged as pavement against 3,551 km of road.
    Absence in the map says nothing about absence on the ground.</div>
   <div class="note warn"><b>Traffic calming measures mapping effort, not streets.</b>
-   17.15% of Rotterdam segments are calmed against 0.62% in Genova &mdash; a 27.6&times;
-   gap from 3,806 mapped features against 73. Both cities report full coverage.
-   Coverage proves observation, not comparability.</div>
+   A calming feature is found beside 17.15% of Rotterdam segments and 0.62% of
+   Genova's &mdash; a 27.6&times; gap from 3,806 mapped features against 73.
+   Italian streets are not 28 times less calmed than Dutch ones; Dutch mappers
+   record speed bumps and Italian ones largely do not. The layer reports
+   features that exist and is silent everywhere else, so those figures are
+   <b>detection rates &mdash; lower bounds on prevalence</b>, not rates. Absence
+   of a detection is left unobserved, which is why calming now covers 17.15% and
+   0.62% of segments rather than the 100% it once claimed, and why it no longer
+   enters the index in either city.</div>
   <div class="note"><b>Terrain changes the comparison, not just the numbers.</b>
    Routing on flat distance made Genova look comparable to Rotterdam
    (reach 0.481 against 0.508). Routing on slope-adjusted walking time over a
@@ -238,9 +244,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
    &mdash; the gap between the cities was understated <b>5.8&times;</b>, and
    <b>12.6&times;</b> once weighted by residents. Genova is denser but cannot
    convert that density into access on foot.</div>
-  <div class="note"><b>Only 3 of 9 indicators survive two cities.</b>
-   Speed limits are tagged on 79.3% of Rotterdam roads and 9.4% of Genova's, so
-   that indicator drops out of any cross-city claim.</div>
+  <div class="note"><b>One indicator of nine survives two cities.</b>
+   Speed limits are tagged on 79.3% of Rotterdam roads and 9.4% of Genova's, and
+   traffic calming is a detection rate rather than a rate, so both drop out of
+   any cross-city claim. What is left is road classification, and a comparative
+   index built on it alone scores every street class identically in the two
+   cities &mdash; residential 0.750 against 0.750. The 0.221 gap this project
+   previously reported between Rotterdam's and Genova's residential streets was
+   produced entirely by indicators one city had and the other did not.</div>
 
   <h2>Caveats</h2>
   <div class="note">Population is <b>total residents</b>, not children &mdash; GHS-POP

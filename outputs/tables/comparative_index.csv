@@ -1,0 +1,13 @@
+city,class,n,index,lo,hi,indicators
+genova,all (excl. service),83076,0.79,0.79,0.79,s_highway
+genova,residential,18964,0.75,0.75,0.75,s_highway
+genova,unclassified,8156,0.6,0.6,0.6,s_highway
+genova,tertiary,5224,0.4,0.4,0.4,s_highway
+genova,secondary,3206,0.2,0.2,0.2,s_highway
+genova,primary,3078,0.05,0.05,0.05,s_highway
+rotterdam,all (excl. service),104012,0.8128,0.8128,0.8128,s_highway
+rotterdam,residential,33378,0.75,0.75,0.75,s_highway
+rotterdam,unclassified,5898,0.6,0.6,0.6,s_highway
+rotterdam,tertiary,6348,0.4,0.4,0.4,s_highway
+rotterdam,secondary,4671,0.2,0.2,0.2,s_highway
+rotterdam,primary,722,0.05,0.05,0.05,s_highway

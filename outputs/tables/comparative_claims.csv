@@ -1,0 +1,7 @@
+class,city_a,city_b,index_a,index_b,point_gap,interval_a,interval_b,margin,supported,negligible
+all (excl. service),genova,rotterdam,0.79,0.8128,-0.0227,"[0.790, 0.790]","[0.813, 0.813]",0.02272,True,False
+residential,genova,rotterdam,0.75,0.75,0.0,"[0.750, 0.750]","[0.750, 0.750]",0.0,False,False
+unclassified,genova,rotterdam,0.6,0.6,0.0,"[0.600, 0.600]","[0.600, 0.600]",0.0,False,False
+tertiary,genova,rotterdam,0.4,0.4,-0.0,"[0.400, 0.400]","[0.400, 0.400]",0.0,False,False
+secondary,genova,rotterdam,0.2,0.2,0.0,"[0.200, 0.200]","[0.200, 0.200]",0.0,False,False
+primary,genova,rotterdam,0.05,0.05,0.0,"[0.050, 0.050]","[0.050, 0.050]",0.0,False,False

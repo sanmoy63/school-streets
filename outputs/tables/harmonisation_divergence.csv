@@ -1,5 +1,5 @@
 indicator,genova,rotterdam,ratio,suspect
-s_calming,0.0062,0.1715,27.5709,True
+s_calming,1.0,1.0,1.0,False
 s_highway,0.7734,0.7978,1.0316,False
 s_sidewalk,0.91,0.8858,1.0273,False
 s_speed,0.6526,0.6467,1.0091,False

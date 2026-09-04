@@ -1,5 +1,5 @@
 city,indicator,share_segments,share_length,n_observed,n_applicable,n_total
-rotterdam,s_calming,1.0,1.0,68252,68252,119882
+rotterdam,s_calming,0.1715,0.2112,11704,68252,119882
 rotterdam,s_speed,0.7942,0.8237,54207,68252,119882
 rotterdam,s_highway,1.0,1.0,119882,119882,119882
 rotterdam,s_sidewalk,0.1906,0.1457,12857,67444,119882

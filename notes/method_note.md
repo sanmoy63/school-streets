@@ -400,34 +400,60 @@ filter behaved -- it excluded *Scuola Secondaria di Primo Grado*, *Scuola Media*
 and *Liceo Classico* while keeping *Istituto Comprensivo*, which is the unit that
 actually contains the primary school.
 
-The value of the second city is not the second set of numbers. It is that three
-problems became visible which one city could not show.
+The value of the second city is not the second set of numbers. It is that five
+problems became visible which one city could not show — and four of them were
+in this pipeline rather than in OSM.
 
 ### 1. Coverage is necessary but not sufficient for comparability
 
-`s_calming` is observed on 100% of applicable segments in **both** cities, so the
-coverage gate passes it as comparable. The values:
+`s_calming` was reported as observed on 100% of applicable segments in **both**
+cities, and cleared the coverage gate on that basis.
+
+The 100% was wrong, and the error was here rather than in OSM. Traffic calming
+is tagged on nodes; a segment scored 1.0 when a calming feature lay within 15 m
+of it, and **0.0 otherwise**. That zero is the defect. It converts *we did not
+find a speed bump* into *there is no speed bump*.
 
 | | Rotterdam | Genova | ratio |
 |---|---|---|---|
 | mapped calming features | 3,806 | 73 | 52x |
-| share of segments calmed | 17.15% | 0.62% | **27.6x** |
+| segments with a detection | 17.15% | 0.62% | **27.6x** |
 
 Italian streets are not 28 times less calmed than Dutch ones. Dutch OSM
-contributors map speed bumps meticulously; Italian ones largely do not. Left
-alone, that mapping-effort gradient enters the composite as a substantive
-finding -- and `s_calming` is one of only three indicators that survive the gate,
-so it carries real weight.
+contributors map speed bumps meticulously; Italian ones largely do not.
 
-This is the missing-is-not-zero error one level up, inside the comparability test
-itself. The framework asked *"did we observe it?"* and never asked *"did we
-observe the same thing?"*.
+**The general form of the mistake.** Sources divide into two kinds, and the
+pipeline was treating them alike:
 
-`02_harmonisation_matrix.py` now runs a **divergence check**: for every indicator
-observed in all cities, compare the mean and flag ratios beyond 5x. It flags
-`s_calming` (27.6x) and nothing else -- `s_highway` 1.03, `s_sidewalk` 1.03,
-`s_speed` 1.01. A screen, not a verdict: a real cross-city gap can be large. It
-shifts the burden of proof onto the analyst instead of letting the number pass.
+* **two-sided** — presence and absence are stated with comparable reliability.
+  `maxspeed=30` and `maxspeed=50` are both positive statements; a highway class
+  is always present.
+* **presence-only** — the source records features that exist and is silent
+  everywhere else. Traffic calming, street lighting, crossings, bollards.
+
+A presence-only layer yields a **lower bound on prevalence, never a rate**,
+unless its detection rate has been established against an independent source.
+Scoring its non-detections as zero asserts the layer is complete. This is the
+missing-is-not-zero error the project was built to avoid, displaced one level up
+— from the segment to the layer — where the existing guards could not see it,
+because a fabricated zero is indistinguishable from an observation.
+
+`s_calming` is now typed presence-only (`INDICATOR_KIND` in `segment_index.py`).
+Detections are trusted; non-detections are left unobserved unless
+`indicator_completeness` in `config/cities.yml` declares a validated detection
+rate of 0.90 or better. Both entries are null, because neither has been
+validated. Its coverage therefore falls from an apparent 100% to its true 17.15%
+and 0.62%, and it now fails the **coverage** gate in both cities — one gate
+earlier than the divergence check written to catch it.
+
+The divergence check remains and is now silent on `s_calming`: where the layer
+is observed, its mean is 1.0 in both cities by construction. That is the
+intended outcome rather than a regression — the defect is caught by the first
+gate it reaches, and the screen stays for the two-sided indicators, where it is
+still the only thing asking whether two cities observed the same thing. The
+27.6x itself is still reported, in `harmonisation_detection.csv`, labelled as
+what it is: a ratio of **detection rates**, which mixes the true difference with
+the difference in survey effort and cannot separate them.
 
 ### 2. Speed data collapses across the border
 
@@ -437,14 +463,63 @@ shifts the burden of proof onto the analyst instead of letting the number pass.
 
 `s_speed` was comfortably comparable within Rotterdam. Across two cities it is
 not, and it drops out. Adding `IT:urban` to the implicit-speed table was
-necessary but nowhere near sufficient -- the tags are simply absent.
+necessary but nowhere near sufficient — the tags are simply absent.
 
-**Only 3 of 9 indicators survive two cities**: `s_highway`, `s_calming` (now
-flagged as suspect) and the traffic-safety domain they compose. The composite is
-therefore close to a road-classification index in cross-city use, and should be
-described that way.
+It is worth recording why the obvious repair fails. Both the Netherlands and
+Italy set an urban default of 50 km/h, so filling untagged roads with the legal
+default looks defensible. It makes the gap **wider**, not narrower: Rotterdam
+0.607 → 0.606, Genova 0.386 → 0.331. Genova's `maxspeed` is missing *not at
+random*, and in the informative direction — 56% of its tagged roads are 30
+zones, because mappers record the exception and leave the default implicit. The
+observed sample is therefore biased high and the legal default biased low. This
+is an identification problem, not a gap-filling problem, and no imputation
+resolves it.
 
-### 3. The flat-walking assumption breaks, and by how much
+**One indicator of nine survives two cities**: `s_highway`. The composite in
+cross-city use is not "close to" a road-classification index. It is one,
+exactly, and should be described that way.
+
+### 3. The available-case mean, and why the gap was never real
+
+The two failures above are about evidence. This one is arithmetic, and it is
+what turned them into a finding.
+
+A domain score was the mean of its **observed** indicators. Those indicators do
+not share an expectation: in Rotterdam `s_speed` averages 0.80, `s_highway`
+0.75, `s_calming` 0.28. So when an indicator goes missing the mean renormalises
+over the survivors, and the score moves on its own — in a direction fixed by
+which indicator was lost. Missingness was not adding noise. It was a lever.
+
+In Genova 92.8% of residential segments carry no `maxspeed`. The high-valued
+indicator vanished and the average fell onto the low-valued one. That, and
+nothing about Genovese streets, produced 0.386 against Rotterdam's 0.607.
+
+The decomposition is not an argument, it is arithmetic on the same data:
+
+| residential `d_traffic_safety` | Rotterdam | Genova | gap |
+|---|---|---|---|
+| available-case mean (as published) | 0.6072 | 0.3858 | **+0.2214** |
+| untagged speed filled with the legal default | 0.6065 | 0.3309 | +0.2756 |
+| `s_speed` dropped in both cities | 0.5135 | 0.3776 | +0.1359 |
+| `s_highway` only | 0.7500 | 0.7500 | **0.0000** |
+
+The last row is the result. Every point of the gap came from indicators one city
+had and the other did not.
+
+### 4. The comparability verdict was computed and never applied
+
+`02_harmonisation_matrix.py` determined that `s_speed` was not comparable, wrote
+that verdict to a CSV, and nothing read it. Each city was then indexed on
+whatever it happened to observe, so `s_speed` entered Rotterdam's composite and
+not Genova's — and the difference between the two numbers was reported as a
+difference between the two cities.
+
+The comparability test was running *downstream* of the index it should have been
+gating. The decision now lives in `routes_ssr.harmonise`, as one definition used
+both by the script that reports it and by `02b_comparative_index.py`, which
+rebuilds every city on the intersection of what all of them observe.
+
+### 5. The flat-walking assumption breaks, and by how much
 
 The topographic hypothesis was that Genova would strain a model built on
 constant-speed flat walking. It does, measurably:
@@ -464,6 +539,66 @@ neighbourhoods where the question matters. Fixing it means a slope-adjusted
 speed (Tobler's hiking function) over a digital elevation model, which is now
 listed as required work rather than assumed away. Until then, Genovese walkshed
 and `reach_ratio` figures should be read as upper bounds.
+
+### What the framework asks now
+
+Three questions, independent of each other, all three of which an indicator must
+survive before it can carry a cross-city claim:
+
+| gate | question | where |
+|---|---|---|
+| coverage | did we observe it, in every city? | `harmonise.coverage_matrix` |
+| divergence | did we observe the *same thing*? | `harmonise.divergence` |
+| variance | does it discriminate between streets? | `segment_index.modal_share` |
+
+The third is new. An indicator whose observed values sit on a single value for
+more than 95% of segments contributes level and no information, and — unlike an
+all-missing indicator — it moves the domain's level while doing it. `s_calming`
+sits on one value for 99.4% of observed segments in Genova against 82.9% in
+Rotterdam: the indicator carrying almost no within-city information in Genova
+was the same one carrying the 27.6x between-city gap. The gate has a
+100-observation floor, because a modal share computed on a handful of segments
+is noise.
+
+Independence is the point. `s_calming` cleared coverage at an apparent 100% and
+failed the other two.
+
+### Reporting what is not identified
+
+A point estimate invites a comparison the evidence may not support, so every
+index now carries an **identified set** alongside it: the range the index could
+take across every value the unobserved indicators could have held. Observed
+values are pinned; unobserved ones contribute the widest bound that cannot be
+argued away — the full support [0, 1], except for `s_speed` on minor roads,
+where the law narrows it to a 50 km/h default (0.20) and a signed 30 zone
+(0.85).
+
+Where two cities' intervals overlap, there is no claim to make, however far
+apart the point estimates sit: the ordering can be reversed by values the data
+never ruled out.
+
+| residential streets | index | identified set | width |
+|---|---|---|---|
+| Rotterdam | 0.773 | [0.771, 0.774] | 0.003 |
+| Genova | 0.749 | [0.494, 0.795] | **0.302** |
+
+The widths are the honest part of the answer. The same index, backed by two very
+different quantities of evidence, and Genova's interval is a hundred times the
+wider. The intervals overlap, so the residual 0.024 between the point estimates
+is not reportable.
+
+Separation would require knowing how complete Genova's calming layer is.
+Sweeping that completeness over the residential traffic-safety domain, the two
+cities' intervals stay overlapping up to a detection rate of 0.75 and separate
+somewhere between 0.75 and 0.85 — that is, one would have to establish that
+Genovese OSM captures around four fifths of real calming before the comparison
+became possible at all, which is precisely what is in doubt. (The threshold at
+which the code will accept a non-detection as an observed absence,
+`COMPLETENESS_FOR_ABSENCE`, is set at 0.90: deliberately above where separation
+first appears, so that a layer must be better than merely good enough to
+separate the cities before its silences are read as evidence.)
+
+The machinery refuses, and the refusal is correct.
 
 ### The name filter is language-specific, and Genova proved it
 
@@ -543,15 +678,33 @@ Reported for completeness, with the caveats above:
 | with a yard polygon | 189 (67%) | 91 (**30%**) |
 | foot / road length ratio | 0.61 | 0.87 |
 | sidewalk evidence (both / one / unknown) | 14 / 5 / 81% | 23 / 6 / 72% |
-| `reach_ratio` at 10 min | 0.508 (sd 0.136) | 0.478 (sd 0.148) |
-| index in catchments, excl. service | 0.747 | 0.668 |
+| `reach_ratio` at 10 min | 0.508 (sd 0.136) | 0.481 (sd 0.146) |
+| index in catchments, excl. service | 0.822 [0.821, 0.823] | 0.798 [0.706, 0.861] |
+| residential streets | 0.773 [0.771, 0.774] | 0.749 [0.494, 0.795] |
+| residential, shared indicator only | **0.750** | **0.750** |
 
-The index gap is led by residential streets (0.607 vs 0.386, a difference of
-0.221). That is **not** evidence that Genovese residential streets are more
-hostile. It is what happens when 90% of a city's roads have no speed tag and its
-calming is unmapped: the two inputs that distinguish one residential street from
-another are missing, so everything collapses toward the class default. The gap
-measures OSM, not Genova.
+The last row is the one that matters. Restricted to the single indicator both
+cities observe, every street class scores identically in the two cities —
+residential 0.750 against 0.750, unclassified 0.600 against 0.600, primary 0.050
+against 0.050. The previous edition of this note reported a residential gap of
+0.607 against 0.386 and argued that it measured OSM rather than Genova. That
+reading was right, and it is now a measurement rather than an interpretation.
+
+One comparison survives: the whole network excluding service roads, 0.790 in
+Genova against 0.813 in Rotterdam, intervals disjoint by 0.023. It is a
+statement about the **composition** of the two networks — Genova carries 3,078
+primary-road segments to Rotterdam's 722 — and not about the quality of
+comparable streets. All five class-level comparisons are unsupported.
+
+What this leaves is a road-classification index with a cross-city gradient of
+zero, which is a thin result and an honest one. Improving it does not mean a
+better composite; it means either establishing detection rates for the
+presence-only layers against an independent source (municipal open data for
+both cities; the Comune di Genova's *grafo stradale* and Zone 30 layers, the
+Dutch NWB and its speed-regime dataset), or adding indicators that do not depend
+on tagging effort at all — greenness and enclosure from pan-European raster and
+building-footprint products, and through-traffic exposure from network
+centrality, which is computed identically wherever there is a graph.
 
 ## 4e. Terrain: the flat-network assumption was hiding the comparison
 

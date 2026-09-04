@@ -165,6 +165,7 @@ schools:
     - "(?i)atheneum"
     - "(?i)humaniora"
     - "(?i)secundair"
+    - "(?i)luzac"
     # --- Polish (Krakow) ---
     # `ponadpodstawow` is required rather than `podstawow`, which would also
     # match "szkola podstawowa" -- the primary schools we are trying to keep.
@@ -222,6 +223,29 @@ network:
   # separated footway is present.
   hostile_speed_kmh: 50
 
+# Presence-only OSM layers record what exists and say nothing about anywhere
+# else. Scoring "no feature found here" as a zero asserts the layer is complete,
+# and that assertion is what let traffic calming into the composite carrying a
+# 27.6x Rotterdam/Genova gap -- 3,806 mapped features against 73 -- which is a
+# fact about who maps speed bumps, not about who has them.
+#
+# So a non-detection counts as an observed absence only where the layer's
+# detection rate has been measured against an independent source and comes back
+# at or above 0.90 (`COMPLETENESS_FOR_ABSENCE` in segment_index.py). Below that,
+# and wherever the entry is null, non-detections are left unobserved and the
+# indicator reports a lower bound on prevalence rather than a rate.
+#
+# Both entries are null because neither has been validated. Filling one in is a
+# claim about survey completeness and needs a source named beside it: for
+# Rotterdam the national road register (NWB) and the municipal open-data
+# portal; for Genova the Comune's grafo stradale and its Zone 30 / isole
+# ambientali layers. A stratified sample checked against street-level imagery
+# gives the same estimate more cheaply, with a confidence interval.
+indicator_completeness:
+  s_calming:
+    rotterdam: null
+    genova: null
+
 segment_index:
   # Weights for the composite street-segment index. Equal weights within the
   # three domains, with domains weighted by their standing in the school-street
@@ -231,3 +255,9 @@ segment_index:
     traffic_safety: 0.40
     walking_infrastructure: 0.35
     environment: 0.25
+
+imagery:
+  snap_distance_m: 25.0
+  mapillary_api_base: "https://graph.mapillary.com"
+  kartaview_api_base: "https://api.kartaview.org/2.0"
+
