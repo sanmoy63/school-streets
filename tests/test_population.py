@@ -156,9 +156,19 @@ def test_default_subsample_is_fine_enough_for_corridor_geometry():
 
 
 def test_coarse_subsample_visibly_degrades_accuracy(uniform_raster):
-    """Documents *why* the default is what it is, rather than asserting it."""
+    """Documents *why* the default is what it is, rather than asserting it.
+
+    The ribbon is 10 m, not 20 m. At subsample=5 the sub-cells are exactly
+    20 m, so a 20 m ribbon is quantised to precisely one sub-row -- a coverage
+    of 1/5, which is the exact answer. That made the coarse result accidentally
+    perfect and the assertion depended on which side of the sub-cell boundary
+    GDAL happened to round, so it passed or failed with the GDAL build rather
+    than with the code. A 10 m ribbon cannot be represented on a 20 m grid at
+    all: coverage quantises to 0 or 1/5 against a true 1/10, so the error is
+    at least 100% or 67% whatever the alignment.
+    """
     path, x0, y0 = uniform_raster
-    g = poly(x0, y0 - CELL / 2, 5 * CELL, 20.0)
+    g = poly(x0, y0 - CELL / 2, 5 * CELL, 10.0)
     exact = zonal_population(g, path, subsample=50).iloc[0]
     coarse = zonal_population(g, path, subsample=5).iloc[0]
     assert abs(coarse - exact) > 0.4 * exact
