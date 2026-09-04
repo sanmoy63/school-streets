@@ -186,123 +186,283 @@ def _render(cities: dict) -> str:
 
 
 _TEMPLATE = r"""<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>School-Street Readiness Atlas</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>School-Street Readiness Atlas | Comparative Multi-City Study</title>
+<meta name="description" content="Open urban atlas evaluating school-street intervention readiness, spatial data observability, and topological severance in Rotterdam and Genoa.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
- *{box-sizing:border-box} html,body{margin:0;height:100%;font:14px/1.5 system-ui,sans-serif;color:#1a1a1a}
- #wrap{display:flex;height:100%}
- #side{width:380px;min-width:380px;overflow-y:auto;padding:20px;background:#fafafa;border-right:1px solid #ddd}
- #map{flex:1}
- h1{font-size:19px;margin:0 0 4px} h2{font-size:14px;margin:22px 0 6px;text-transform:uppercase;letter-spacing:.04em;color:#666}
- .sub{color:#666;font-size:13px;margin-bottom:16px}
- button{font:inherit;padding:6px 12px;margin:0 6px 6px 0;border:1px solid #bbb;background:#fff;border-radius:4px;cursor:pointer}
- button.on{background:#4a1486;color:#fff;border-color:#4a1486}
- table{border-collapse:collapse;width:100%;font-size:13px} td{padding:3px 0;vertical-align:top}
- td.k{color:#666} td.v{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
- .note{font-size:12px;color:#555;background:#fff;border-left:3px solid #4a1486;padding:9px 11px;margin:10px 0}
- .warn{border-left-color:#c44}
- .legend{font-size:12px;margin:8px 0}
- .swatch{display:inline-block;width:13px;height:13px;border-radius:50%;margin-right:6px;vertical-align:-2px;border:1px solid #333}
- .bar{height:9px;background:linear-gradient(90deg,#4a1486,#9e9ac8,#dadaeb);border-radius:2px;margin:4px 0}
- .ends{display:flex;justify-content:space-between;color:#666;font-size:11px}
- a{color:#4a1486}
- @media(max-width:760px){#wrap{flex-direction:column}#side{width:100%;min-width:0;height:46%}#map{height:54%}}
-</style></head><body>
+ :root {
+   --primary: #4a1486;
+   --primary-light: #7048a6;
+   --primary-subtle: #f3effa;
+   --confirmed-red: #b30000;
+   --confirmed-bg: #fdf2f2;
+   --candidate-amber: #d97706;
+   --candidate-bg: #fffbeb;
+   --shed-blue: #2563eb;
+   --slate-50: #f8fafc;
+   --slate-100: #f1f5f9;
+   --slate-200: #e2e8f0;
+   --slate-600: #475569;
+   --slate-800: #1e293b;
+   --slate-900: #0f172a;
+ }
+ * { box-sizing: border-box; margin: 0; padding: 0; }
+ html, body { height: 100%; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: var(--slate-900); background: #fff; }
+ #wrap { display: flex; height: 100%; position: relative; overflow: hidden; }
+ #side {
+   width: 420px; min-width: 420px; height: 100%; overflow-y: auto; padding: 24px;
+   background: var(--slate-50); border-right: 1px solid var(--slate-200);
+   display: flex; flex-direction: column; gap: 20px; z-index: 10;
+   box-shadow: 2px 0 12px rgba(0,0,0,0.03);
+ }
+ #map-container { flex: 1; position: relative; height: 100%; }
+ #map { width: 100%; height: 100%; }
+
+ .badge {
+   display: inline-flex; align-items: center; gap: 5px;
+   font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+   padding: 4px 8px; border-radius: 9999px; background: var(--primary-subtle); color: var(--primary);
+   width: fit-content;
+ }
+ h1 { font-size: 22px; font-weight: 800; color: var(--slate-900); line-height: 1.25; }
+ .sub { font-size: 13px; color: var(--slate-600); line-height: 1.55; }
+
+ .segmented-control {
+   display: flex; background: var(--slate-200); padding: 3px; border-radius: 8px; gap: 3px;
+ }
+ .segmented-control button {
+   flex: 1; border: none; padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600;
+   border-radius: 6px; cursor: pointer; background: transparent; color: var(--slate-600);
+   transition: all 0.2s ease;
+ }
+ .segmented-control button.on {
+   background: #fff; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+ }
+
+ .card {
+   background: #fff; border: 1px solid var(--slate-200); border-radius: 10px; padding: 16px;
+   box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+ }
+ .card-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate-600); margin-bottom: 12px; }
+
+ .grid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+ .stat-box { padding: 10px 12px; border-radius: 8px; background: var(--slate-50); border: 1px solid var(--slate-200); }
+ .stat-val { font-size: 18px; font-weight: 800; font-family: 'JetBrains Mono', monospace; }
+ .stat-lbl { font-size: 11px; color: var(--slate-600); margin-top: 2px; }
+
+ .stat-box.confirmed { background: var(--confirmed-bg); border-color: rgba(179,0,0,0.2); }
+ .stat-box.confirmed .stat-val { color: var(--confirmed-red); }
+ .stat-box.candidate { background: var(--candidate-bg); border-color: rgba(217,119,6,0.2); }
+ .stat-box.candidate .stat-val { color: var(--candidate-amber); }
+
+ table.stats-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+ table.stats-table td { padding: 5px 0; border-bottom: 1px solid var(--slate-100); }
+ table.stats-table td.k { color: var(--slate-600); }
+ table.stats-table td.v { text-align: right; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+ .legend-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; line-height: 1.4; margin-bottom: 10px; }
+ .legend-icon { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+ .legend-bar { height: 8px; width: 100%; background: linear-gradient(90deg,#4a1486,#807dba,#dadaeb); border-radius: 2px; margin: 6px 0 2px; }
+ .legend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--slate-600); font-family: 'JetBrains Mono', monospace; }
+
+ .note {
+   font-size: 12px; line-height: 1.5; color: var(--slate-600);
+   background: #fff; border-left: 3px solid var(--primary); padding: 10px 12px; border-radius: 0 6px 6px 0;
+   border-top: 1px solid var(--slate-200); border-right: 1px solid var(--slate-200); border-bottom: 1px solid var(--slate-200);
+ }
+ .note.warn { border-left-color: #e11d48; }
+ .note b { color: var(--slate-900); }
+
+ .floating-controls {
+   position: absolute; top: 16px; right: 16px; z-index: 1000;
+   background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px);
+   border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 8px 12px;
+   box-shadow: 0 4px 14px rgba(0,0,0,0.08); display: flex; flex-direction: column; gap: 6px;
+ }
+ .filter-title { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--slate-600); }
+ .filter-btns { display: flex; gap: 4px; }
+ .filter-chip {
+   padding: 4px 8px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 1px solid var(--slate-200);
+   background: #fff; cursor: pointer; transition: all 0.15s ease;
+ }
+ .filter-chip.active { background: var(--slate-800); color: #fff; border-color: var(--slate-800); }
+
+ .inspector-card {
+   position: absolute; bottom: 20px; right: 20px; z-index: 1000; width: 310px;
+   background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+   border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 14px;
+   box-shadow: 0 10px 25px rgba(0,0,0,0.1); display: none; font-size: 12px;
+ }
+ .inspector-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+ .inspector-name { font-weight: 700; font-size: 13px; color: var(--slate-900); }
+ .inspector-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+
+ .interval-bar-bg { height: 6px; background: var(--slate-200); border-radius: 3px; position: relative; margin: 8px 0; }
+ .interval-bar-fill { position: absolute; height: 100%; border-radius: 3px; }
+
+ a { color: var(--primary); text-decoration: none; font-weight: 600; }
+ a:hover { text-decoration: underline; }
+
+ @media(max-width: 860px) {
+   #wrap { flex-direction: column; }
+   #side { width: 100%; min-width: 0; height: 48%; border-right: none; border-bottom: 1px solid var(--slate-200); }
+   #map-container { height: 52%; }
+   .floating-controls { top: 10px; right: 10px; }
+ }
+</style>
+</head>
+<body>
 <div id="wrap">
  <div id="side">
-  <h1>School-Street Readiness Atlas</h1>
-  <div class="sub">Two contrasting cities &mdash; <b>Rotterdam</b> is flat,
-  <b>Genova</b> is steep. Schools are sized by residents reachable on foot and
-  coloured by how much of what looks nearby can actually be walked to, routing on
-  slope-adjusted walking time.</div>
-  <div>__BUTTONS__</div>
-
-  <h2>This city</h2>
-  <table id="stats"></table>
-
-  <h2>Reading the map</h2>
-  <div class="legend"><b>School colour</b> &mdash; severance (<code>reach_ratio</code>)
-   <div class="bar"></div>
-   <div class="ends"><span>0.0 cut off</span><span>1.0 fully reachable</span></div>
-  </div>
-  <div class="legend"><span class="swatch" style="background:#b30000"></span>
-   <b>Confirmed intervention priority</b> &mdash; upper bound &le; 0.20 (genuine infrastructure deficit)</div>
-  <div class="legend"><span class="swatch" style="background:#e68a00"></span>
-   <b>Data-deficient candidate</b> &mdash; index &le; 0.20 due to unobserved speed/sidewalks (audit needed)</div>
-  <div class="legend"><span class="swatch" style="background:#3182bd;opacity:.35"></span>
-   10-minute walkshed &mdash; slope-adjusted walking time, child pace on the level</div>
-
-  <h2>What the data will not support</h2>
-  <div class="note warn"><b>Pavements are not measurable from OpenStreetMap.</b>
-   In Rotterdam the <code>sidewalk</code> tag appears on 0 of 68,464 roads, and only
-   30 km of footway is explicitly tagged as pavement against 3,551 km of road.
-   Absence in the map says nothing about absence on the ground.</div>
-  <div class="note warn"><b>Traffic calming measures mapping effort, not streets.</b>
-   A calming feature is found beside 17.15% of Rotterdam segments and 0.62% of
-   Genova's &mdash; a 27.6&times; gap from 3,806 mapped features against 73.
-   Italian streets are not 28 times less calmed than Dutch ones; Dutch mappers
-   record speed bumps and Italian ones largely do not. The layer reports
-   features that exist and is silent everywhere else, so those figures are
-   <b>detection rates &mdash; lower bounds on prevalence</b>, not rates. Absence
-   of a detection is left unobserved, which is why calming now covers 17.15% and
-   0.62% of segments rather than the 100% it once claimed, and why it no longer
-   enters the index in either city.</div>
-  <div class="note"><b>Terrain changes the comparison, not just the numbers.</b>
-   Routing on flat distance made Genova look comparable to Rotterdam
-   (reach 0.481 against 0.508). Routing on slope-adjusted walking time over a
-   30&nbsp;m elevation model drops Genova to 0.305 and Rotterdam only to 0.462
-   &mdash; the gap between the cities was understated <b>5.8&times;</b>, and
-   <b>12.6&times;</b> once weighted by residents. Genova is denser but cannot
-   convert that density into access on foot.</div>
-  <div class="note"><b>One indicator of nine survives two cities.</b>
-   Speed limits are tagged on 79.3% of Rotterdam roads and 9.4% of Genova's, and
-   traffic calming is a detection rate rather than a rate, so both drop out of
-   any cross-city claim. What is left is road classification, and a comparative
-   index built on it alone scores every street class identically in the two
-   cities &mdash; residential 0.750 against 0.750. The 0.221 gap this project
-   previously reported between Rotterdam's and Genova's residential streets was
-   produced entirely by indicators one city had and the other did not.</div>
-
-  <h2>Caveats</h2>
-  <div class="note">Population is <b>total residents</b>, not children &mdash; GHS-POP
-   carries no age structure. Catchments overlap, so per-school figures must not be
-   summed to a city total.</div>
-  <h2>Full-detail maps</h2>
-  <div class="note">This page shows only streets scoring &le; 0.20. The maps below
-   draw <b>every</b> street in the 5-minute catchments, coloured by index. They are
-   7-8 MB each and take a few seconds to load.<br><br>
-   <a href="rotterdam-full.html">Rotterdam, all streets</a> &middot;
-   <a href="genova-full.html">Genova, all streets</a></div>
-
-  <div class="sub" style="margin-top:18px">
-   Method: <a href="https://github.com/sanmoy63/school-streets/blob/main/notes/method_note.md">method note</a> &middot;
-   Code: <a href="https://github.com/sanmoy63/school-streets">GitHub</a>
+  <div>
+   <div class="badge">Open Urban Atlas &middot; Spatial Data Observability</div>
+   <h1 style="margin-top: 8px;">School-Street Readiness Atlas</h1>
+   <p class="sub" style="margin-top: 6px;">
+    Evaluating school access in contrasting topographies: flat <b>Rotterdam</b> versus vertical <b>Genova</b>.
+    Comparing local priorities against data-observability bounds to prevent missing-data bias.
+   </p>
   </div>
 
-  <h2>Data &amp; attribution</h2>
-  <div class="sub" style="font-size:12px">
-   Street network, schools and traffic calming: &copy; <a
-   href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors,
-   <a href="https://opendatacommons.org/licenses/odbl/1-0/">ODbL v1.0</a>. This
-   page is a derived database and carries the same share-alike obligation.<br><br>
-   Population: GHS-POP R2023A, European Commission Joint Research Centre
-   (Schiavina, Freire, Carioli, MacManus 2023),
-   <a href="http://data.europa.eu/89h/2ff68a52-5b5b-4a22-8f40-c41da8332cfe">doi:10.2905/2FF68A52-5B5B-4A22-8F40-C41DA8332CFE</a>.<br><br>
-   Elevation: produced using Copernicus WorldDEM-30 &copy; DLR e.V. 2010-2014 and
-   &copy; Airbus Defence and Space GmbH 2014-2018 provided under COPERNICUS by
-   the European Union and ESA; all rights reserved.
+  <div class="segmented-control" id="city-buttons">
+   __BUTTONS__
+  </div>
+
+  <div class="card">
+   <div class="card-title">City Network Overview</div>
+   <div class="grid-stats">
+    <div class="stat-box confirmed">
+     <div class="stat-val" id="stat-confirmed">&mdash;</div>
+     <div class="stat-lbl">Confirmed Priorities<br><span style="font-size:9px;color:#991b1b;">Upper bound &le; 0.20</span></div>
+    </div>
+    <div class="stat-box candidate">
+     <div class="stat-val" id="stat-candidate">&mdash;</div>
+     <div class="stat-lbl">Data-Deficient Candidates<br><span style="font-size:9px;color:#92400e;">Missing tags (audit needed)</span></div>
+    </div>
+   </div>
+   <table class="stats-table" id="stats-detail"></table>
+  </div>
+
+  <div class="card">
+   <div class="card-title">Reading the Map</div>
+   <div class="legend-item">
+    <div class="legend-icon" style="background:#b30000;"></div>
+    <div>
+     <b style="color:#b30000;">Confirmed Intervention Priorities</b><br>
+     <span class="sub">$\text{ssr\_index\_hi} \le 0.20$ &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
+    </div>
+   </div>
+   <div class="legend-item">
+    <div class="legend-icon" style="background:#d97706;"></div>
+    <div>
+     <b style="color:#d97706;">Data-Deficient Candidates</b><br>
+     <span class="sub">$\text{index} \le 0.20$ but $\text{hi} > 0.20$ &mdash; flagged by default penalties; target for audit, not civil works.</span>
+    </div>
+   </div>
+   <div class="legend-item">
+    <div class="legend-icon" style="background:#2563eb; opacity:0.6;"></div>
+    <div>
+     <b>10-minute Network Walkshed</b><br>
+     <span class="sub">Reachable catchment based on slope-adjusted walking pace (Tobler hiking function on Copernicus 30m DEM).</span>
+    </div>
+   </div>
+   <div style="margin-top: 10px;">
+    <div style="font-size:11px; font-weight:700; color:var(--slate-600);">School Reach Ratio (Network Severance)</div>
+    <div class="legend-bar"></div>
+    <div class="legend-ends">
+     <span>0.0 Severed</span>
+     <span>0.5 Baseline</span>
+     <span>1.0 Full Reach</span>
+    </div>
+   </div>
+  </div>
+
+  <div class="card" style="display:flex; flex-direction:column; gap:10px;">
+   <div class="card-title">Methodological Findings</div>
+   <div class="note warn">
+    <b>Pavements are not measurable from OpenStreetMap.</b>
+    In Rotterdam <code>sidewalk</code> tags appear on 0 of 68,464 roads (footways are separate geometries), while Genova has partial inline tagging.
+   </div>
+   <div class="note warn">
+    <b>Traffic calming measures mapper activity, not street calming.</b>
+    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova ($28\times$ disparity from 3,806 vs 73 tags). These are detection lower bounds, not actual prevalence.
+   </div>
+   <div class="note">
+    <b>Terrain alters the accessibility reality.</b>
+    Flat planar routing understated the gap between Rotterdam and Genova by <b>5.8&times;</b> (and <b>12.6&times;</b> when resident-weighted). Vertical topography severely restricts walkable school access.
+   </div>
+   <div class="note">
+    <b>1 of 9 indicators survives cross-city comparison.</b>
+    When strictly filtering out indicators with &gt;20% missingness, only <code>highway_class</code> survives, scoring residential streets identically (0.750) across both cities.
+   </div>
+  </div>
+
+  <div class="card">
+   <div class="card-title">Full Catchment Explorer</div>
+   <p class="sub" style="margin-bottom: 8px;">Explore 100% of street segments in 5-minute school catchments:</p>
+   <div style="display:flex; gap:10px;">
+    <a href="rotterdam-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Rotterdam Full Network</a>
+    <a href="genova-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Genova Full Network</a>
+   </div>
+  </div>
+
+  <div style="font-size: 11px; color: var(--slate-600); line-height: 1.6; padding-bottom: 12px;">
+   Method note: <a href="https://github.com/sanmoy63/school-streets/blob/main/notes/method_note.md">Methodological Reference</a> &middot;
+   Repository: <a href="https://github.com/sanmoy63/school-streets">GitHub</a><br>
+   &copy; OpenStreetMap contributors &middot; GHS-POP R2023A (JRC) &middot; Copernicus WorldDEM-30.
   </div>
  </div>
- <div id="map"></div>
+
+ <div id="map-container">
+  <div id="map"></div>
+
+  <div class="floating-controls">
+   <div class="filter-title">Street Display Filter</div>
+   <div class="filter-btns">
+    <button class="filter-chip active" id="flt-all" onclick="setStreetFilter('all')">All (&le;0.20)</button>
+    <button class="filter-chip" id="flt-confirmed" onclick="setStreetFilter('confirmed')">Confirmed Only</button>
+    <button class="filter-chip" id="flt-candidate" onclick="setStreetFilter('candidate')">Data-Deficient</button>
+   </div>
+  </div>
+
+  <div class="inspector-card" id="inspector">
+   <div class="inspector-header">
+    <div class="inspector-name" id="insp-name">Street Name</div>
+    <span class="inspector-badge" id="insp-badge">Confirmed</span>
+   </div>
+   <div id="insp-class" style="color:var(--slate-600); margin-bottom:6px; font-size:11px;">highway_class</div>
+   <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:6px;">
+    <span style="font-size:11px; color:var(--slate-600);">SSR Readiness Index</span>
+    <span style="font-weight:800; font-family:'JetBrains Mono',monospace; font-size:14px;" id="insp-score">0.18</span>
+   </div>
+   <div class="interval-bar-bg">
+    <div class="interval-bar-fill" id="insp-bar"></div>
+   </div>
+   <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--slate-600); font-family:'JetBrains Mono',monospace;">
+    <span>Lo: <b id="insp-lo">0.05</b></span>
+    <span>Width: &plusmn;<b id="insp-width">0.18</b></span>
+    <span>Hi: <b id="insp-hi">0.42</b></span>
+   </div>
+   <div id="insp-desc" style="font-size:11px; color:var(--slate-600); margin-top:8px; border-top:1px solid var(--slate-100); padding-top:6px;">
+    Definitive intervention target.
+   </div>
+  </div>
+ </div>
 </div>
+
 <script>
 const DATA = __DATA__;
-const map = L.map('map', {preferCanvas:true});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  {maxZoom:19, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+const map = L.map('map', {preferCanvas: true, zoomControl: true});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
 const RAMP = ['#4a1486','#6a51a3','#807dba','#9e9ac8','#bcbddc','#dadaeb'];
 function colour(v){
@@ -315,70 +475,151 @@ function radius(p){
 }
 function fmt(v,d){ return (v===null||v===undefined||isNaN(v)) ? '&mdash;' : Number(v).toFixed(d); }
 
-let layers = [];
+let currentCityKey = null;
+let currentFilter = 'all';
+let worstGeoJsonLayer = null;
+let shedsLayer = null;
+let schoolsLayer = null;
+
+function setStreetFilter(flt){
+  currentFilter = flt;
+  document.querySelectorAll('.filter-btns .filter-chip').forEach(b => b.classList.remove('active'));
+  document.getElementById('flt-' + flt).classList.add('active');
+  if(worstGeoJsonLayer){
+    worstGeoJsonLayer.eachLayer(l => {
+      const status = l.feature.properties.status;
+      if(flt === 'all'){
+        l.setStyle({opacity: status === 'confirmed' ? 0.9 : 0.75, weight: status === 'confirmed' ? 2.5 : 1.8});
+      } else if(flt === 'confirmed'){
+        l.setStyle({opacity: status === 'confirmed' ? 0.95 : 0, weight: status === 'confirmed' ? 2.6 : 0});
+      } else if(flt === 'candidate'){
+        l.setStyle({opacity: status === 'candidate' ? 0.9 : 0, weight: status === 'candidate' ? 2.4 : 0});
+      }
+    });
+  }
+}
+
+function showInspector(p){
+  const card = document.getElementById('inspector');
+  card.style.display = 'block';
+  document.getElementById('insp-name').textContent = p.name || 'Unnamed Street';
+  document.getElementById('insp-class').textContent = 'Class: ' + (p.highway_class || 'street');
+  document.getElementById('insp-score').textContent = fmt(p.ssr_index, 3);
+  document.getElementById('insp-lo').textContent = fmt(p.ssr_index_lo, 3);
+  document.getElementById('insp-hi').textContent = fmt(p.ssr_index_hi, 3);
+  document.getElementById('insp-width').textContent = fmt(p.ci_width ? p.ci_width/2 : 0, 3);
+
+  const badge = document.getElementById('insp-badge');
+  const bar = document.getElementById('insp-bar');
+  const desc = document.getElementById('insp-desc');
+
+  const loPct = Math.max(0, Math.min(100, (p.ssr_index_lo || 0) * 100));
+  const hiPct = Math.max(0, Math.min(100, (p.ssr_index_hi || 0) * 100));
+  bar.style.left = loPct + '%';
+  bar.style.width = Math.max(2, (hiPct - loPct)) + '%';
+
+  if(p.status === 'confirmed'){
+    badge.textContent = 'Confirmed Priority';
+    badge.style.background = '#fde8e8'; badge.style.color = '#991b1b';
+    bar.style.background = '#b30000';
+    desc.textContent = 'Upper bound ≤ 0.20: Structural infrastructure deficit regardless of missing speed/sidewalk data.';
+  } else {
+    badge.textContent = 'Data-Deficient';
+    badge.style.background = '#fef3c7'; badge.style.color = '#92400e';
+    bar.style.background = '#d97706';
+    desc.textContent = 'Flagged by default penalties (missing tags). Requires field survey before civil works.';
+  }
+}
+
 function show(key){
-  layers.forEach(l => map.removeLayer(l)); layers = [];
+  currentCityKey = key;
+  if(shedsLayer) map.removeLayer(shedsLayer);
+  if(worstGeoJsonLayer) map.removeLayer(worstGeoJsonLayer);
+  if(schoolsLayer) map.removeLayer(schoolsLayer);
+
   const c = DATA[key];
 
-  const sheds = L.geoJSON(c.walksheds, {style:{color:'#3182bd',weight:.5,fillOpacity:.05}}).addTo(map);
-  const worst = L.geoJSON(c.worst, {
+  shedsLayer = L.geoJSON(c.walksheds, {
+    style: {color: '#2563eb', weight: 0.6, fillOpacity: 0.05}
+  }).addTo(map);
+
+  worstGeoJsonLayer = L.geoJSON(c.worst, {
     style: f => {
       const isConf = f.properties.status === 'confirmed';
       return {
-        color: isConf ? '#b30000' : '#e68a00',
+        color: isConf ? '#b30000' : '#d97706',
         weight: isConf ? 2.5 : 1.8,
         opacity: isConf ? 0.9 : 0.75,
       };
     },
     onEachFeature: (f, l) => {
+      l.on({
+        mouseover: e => {
+          showInspector(f.properties);
+          l.setStyle({weight: 4});
+        },
+        mouseout: e => {
+          const isConf = f.properties.status === 'confirmed';
+          l.setStyle({weight: isConf ? 2.5 : 1.8});
+        },
+        click: e => {
+          showInspector(f.properties);
+        }
+      });
+    }
+  }).addTo(map);
+
+  schoolsLayer = L.geoJSON(c.schools, {
+    pointToLayer: (f, ll) => L.circleMarker(ll, {
+      radius: radius(f.properties.pop_reachable),
+      fillColor: colour(f.properties.reach_ratio_10),
+      color: '#0f172a', weight: 1, fillOpacity: 0.92
+    }),
+    onEachFeature: (f, l) => {
       const p = f.properties;
-      const isConf = p.status === 'confirmed';
-      const badge = isConf
-        ? '<span style="background:#fce8e6;color:#c5221f;padding:1px 5px;border-radius:3px;font-weight:600;font-size:11px;">Confirmed priority</span>'
-        : '<span style="background:#fef7e0;color:#b06000;padding:1px 5px;border-radius:3px;font-weight:600;font-size:11px;">Data-deficient (audit needed)</span>';
-      l.bindTooltip(
-        `<b>${p.name || 'unnamed street'}</b> &middot; ${p.highway_class}<br>
-         ${badge}<br>
-         SSR Index: <b>${fmt(p.ssr_index, 3)}</b> [${fmt(p.ssr_index_lo, 3)} &ndash; ${fmt(p.ssr_index_hi, 3)}]<br>
-         Uncertainty width: &plusmn;${fmt(p.ci_width ? p.ci_width / 2 : 0, 3)}`
+      l.bindPopup(
+        `<div style="font-family:'Plus Jakarta Sans',sans-serif; padding:4px;">
+          <div style="font-weight:800; font-size:13px; margin-bottom:4px;">${p.name || 'Unnamed School'}</div>
+          <div style="font-size:12px; color:#475569;">
+            Reachable Network Share: <b>${fmt(p.reach_ratio_10, 3)}</b><br>
+            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : '&mdash;'}</b><br>
+            Population-Weighted Reach: <b>${fmt(p.pop_reach_ratio, 3)}</b>
+          </div>
+        </div>`
       );
     }
   }).addTo(map);
 
-  const schools = L.geoJSON(c.schools, {
-    pointToLayer:(f,ll)=>L.circleMarker(ll,{
-      radius:radius(f.properties.pop_reachable),
-      fillColor:colour(f.properties.reach_ratio_10),
-      color:'#222', weight:1, fillOpacity:.9}),
-    onEachFeature:(f,l)=>{const p=f.properties; l.bindPopup(
-      `<b>${p.name||'unnamed school'}</b><br>
-       Reachable share of nearby network: <b>${fmt(p.reach_ratio_10,3)}</b><br>
-       Residents reachable in 10 min: <b>${p.pop_reachable?Math.round(p.pop_reachable).toLocaleString():'&mdash;'}</b><br>
-       Population-weighted reach: <b>${fmt(p.pop_reach_ratio,3)}</b>`);}
-  }).addTo(map);
-
-  layers = [sheds, worst, schools];
   map.setView(c.centre, 12);
 
   const s = c.stats;
-  document.getElementById('stats').innerHTML = `
-    <tr><td class="k">Schools</td><td class="v">${s.schools}</td></tr>
-    <tr><td class="k">Street segments analysed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
-    <tr><td class="k">Confirmed priorities (hi &le; 0.20)</td><td class="v" style="color:#b30000">${(s.confirmed_n || 0).toLocaleString()}</td></tr>
-    <tr><td class="k">Data-deficient candidates</td><td class="v" style="color:#e68a00">${(s.candidate_n || 0).toLocaleString()}</td></tr>
-    <tr><td class="k">Mean reach ratio (10 min)</td><td class="v">${fmt(s.reach_mean,3)}</td></tr>
-    <tr><td class="k">Median residents reachable</td><td class="v">${s.pop_median?s.pop_median.toLocaleString():'&mdash;'}</td></tr>
-    <tr><td class="k">Population-weighted reach</td><td class="v">${fmt(s.pop_reach_mean,3)}</td></tr>`;
+  document.getElementById('stat-confirmed').textContent = (s.confirmed_n || 0).toLocaleString();
+  document.getElementById('stat-candidate').textContent = (s.candidate_n || 0).toLocaleString();
+
+  document.getElementById('stats-detail').innerHTML = `
+    <tr><td class="k">Evaluated Schools</td><td class="v">${s.schools}</td></tr>
+    <tr><td class="k">Street Segments Analyzed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
+    <tr><td class="k">Total Deficient (Score &le; 0.20)</td><td class="v">${s.worst_n.toLocaleString()}</td></tr>
+    <tr><td class="k">Mean 10-min Reach Ratio</td><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
+    <tr><td class="k">Median Reachable Residents</td><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : '&mdash;'}</td></tr>
+    <tr><td class="k">Population-Weighted Reach</td><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
+  `;
+
+  setStreetFilter(currentFilter);
 }
 
-document.querySelectorAll('button[data-city]').forEach(b=>{
+document.querySelectorAll('#city-buttons button').forEach(b => {
   b.onclick = () => {
-    document.querySelectorAll('button[data-city]').forEach(x=>x.classList.remove('on'));
-    b.classList.add('on'); show(b.dataset.city);
+    document.querySelectorAll('#city-buttons button').forEach(x => x.classList.remove('on'));
+    b.classList.add('on');
+    show(b.dataset.city);
   };
 });
+
 show('__FIRST__');
-</script></body></html>
+</script>
+</body>
+</html>
 """
 
 
