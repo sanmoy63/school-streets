@@ -28,7 +28,15 @@ INDEX_COLORS = ["#4a1486", "#6a51a3", "#807dba", "#9e9ac8", "#bcbddc", "#dadaeb"
 # Fields carried into the HTML. Everything else is dropped before serialising:
 # the first version of this map embedded all 30 columns for 83k segments and
 # produced a 57 MB file, which defeats the point of a single-file artefact.
-TOOLTIP_FIELDS = ["name", "highway_class", "maxspeed_kmh", "ssr_index", "sidewalk_source"]
+TOOLTIP_FIELDS = [
+    "name",
+    "highway_class",
+    "maxspeed_kmh",
+    "ssr_index",
+    "ssr_index_lo",
+    "ssr_index_hi",
+    "sidewalk_source",
+]
 
 
 def _simplify_for_web(
@@ -129,18 +137,38 @@ def school_street_map(
     ).add_to(m)
 
     def style(feature):
-        v = feature["properties"].get("ssr_index")
+        props = feature["properties"]
+        v = props.get("ssr_index")
         if v is None or (isinstance(v, float) and np.isnan(v)):
             return {"color": "#bdbdbd", "weight": 1.2, "opacity": 0.5}
-        return {"color": ramp(v), "weight": 2.4, "opacity": 0.9}
+
+        # Intrinsic uncertainty modulation: segments with wide identified intervals (>0.20)
+        # receive softer opacity to prevent false certainty
+        hi = props.get("ssr_index_hi")
+        lo = props.get("ssr_index_lo")
+        width = (hi - lo) if (hi is not None and lo is not None and not np.isnan(hi) and not np.isnan(lo)) else 0.0
+        opacity = 0.65 if width > 0.20 else 0.90
+        weight = 2.0 if width > 0.20 else 2.6
+        return {"color": ramp(v), "weight": weight, "opacity": opacity}
+
+    alias_map = {
+        "name": "Street",
+        "highway_class": "Class",
+        "maxspeed_kmh": "Speed (km/h)",
+        "ssr_index": "Index",
+        "ssr_index_lo": "Lower Bound",
+        "ssr_index_hi": "Upper Bound",
+        "sidewalk_source": "Sidewalk evidence",
+    }
+    present_fields = [f for f in TOOLTIP_FIELDS if f in segs.columns]
 
     folium.GeoJson(
         segs.to_json(),
         name="Street segments",
         style_function=style,
         tooltip=folium.GeoJsonTooltip(
-            fields=[f for f in TOOLTIP_FIELDS if f in segs.columns],
-            aliases=["Street", "Class", "Speed (km/h)", "Index", "Sidewalk evidence"],
+            fields=present_fields,
+            aliases=[alias_map.get(f, f) for f in present_fields],
             localize=True,
         ),
     ).add_to(m)

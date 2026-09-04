@@ -97,7 +97,10 @@ def build_city(key: str) -> dict | None:
         segs["in_school_catchment"]
         & segs["in_analysis_set"]
         & (segs["ssr_index"] <= WORST_INDEX)
-    ]
+    ].copy()
+    import numpy as np
+    worst["status"] = np.where(worst["ssr_index_hi"] <= WORST_INDEX, "confirmed", "candidate")
+    worst["ci_width"] = (worst["ssr_index_hi"] - worst["ssr_index_lo"]).round(3)
 
     centre = schools.to_crs(4326)
     payload = {
@@ -109,19 +112,27 @@ def build_city(key: str) -> dict | None:
             tol=0,
         ),
         "walksheds": _geojson(shed10, ["school_id"], tol=SHED_TOLERANCE_M, prec=4),
-        "worst": _geojson(worst, ["name", "highway_class", "ssr_index"], tol=SEG_TOLERANCE_M),
+        "worst": _geojson(
+            worst,
+            ["name", "highway_class", "ssr_index", "ssr_index_lo", "ssr_index_hi", "status", "ci_width"],
+            tol=SEG_TOLERANCE_M,
+        ),
         "stats": {
             "schools": int(len(schools)),
             "segments": int(len(segs)),
             "worst_n": int(len(worst)),
+            "confirmed_n": int((worst["status"] == "confirmed").sum()),
+            "candidate_n": int((worst["status"] == "candidate").sum()),
             "reach_mean": _safe_mean(sheds.loc[sheds["minutes"] == 10, "reach_ratio"]),
             "pop_median": _safe_median(schools["pop_reachable"]),
             "pop_reach_mean": _safe_mean(schools["pop_reach_ratio"]),
         },
     }
     log.info(
-        "%s: %d schools, %d worst streets, reach %.3f",
-        key, len(schools), len(worst), payload["stats"]["reach_mean"] or float("nan"),
+        "%s: %d schools, %d worst streets (%d confirmed, %d candidate), reach %.3f",
+        key, len(schools), len(worst),
+        payload["stats"]["confirmed_n"], payload["stats"]["candidate_n"],
+        payload["stats"]["reach_mean"] or float("nan"),
     )
     return payload
 
@@ -217,8 +228,10 @@ _TEMPLATE = r"""<!DOCTYPE html>
    <div class="bar"></div>
    <div class="ends"><span>0.0 cut off</span><span>1.0 fully reachable</span></div>
   </div>
-  <div class="legend"><span class="swatch" style="background:#c44"></span>
-   Streets scoring &le; 0.20 &mdash; the plausible intervention set</div>
+  <div class="legend"><span class="swatch" style="background:#b30000"></span>
+   <b>Confirmed intervention priority</b> &mdash; upper bound &le; 0.20 (genuine infrastructure deficit)</div>
+  <div class="legend"><span class="swatch" style="background:#e68a00"></span>
+   <b>Data-deficient candidate</b> &mdash; index &le; 0.20 due to unobserved speed/sidewalks (audit needed)</div>
   <div class="legend"><span class="swatch" style="background:#3182bd;opacity:.35"></span>
    10-minute walkshed &mdash; slope-adjusted walking time, child pace on the level</div>
 
@@ -308,10 +321,29 @@ function show(key){
   const c = DATA[key];
 
   const sheds = L.geoJSON(c.walksheds, {style:{color:'#3182bd',weight:.5,fillOpacity:.05}}).addTo(map);
-  const worst = L.geoJSON(c.worst, {style:{color:'#c44',weight:2,opacity:.85},
-    onEachFeature:(f,l)=>l.bindTooltip(
-      `<b>${f.properties.name||'unnamed street'}</b><br>${f.properties.highway_class}
-       &middot; index ${fmt(f.properties.ssr_index,3)}`)}).addTo(map);
+  const worst = L.geoJSON(c.worst, {
+    style: f => {
+      const isConf = f.properties.status === 'confirmed';
+      return {
+        color: isConf ? '#b30000' : '#e68a00',
+        weight: isConf ? 2.5 : 1.8,
+        opacity: isConf ? 0.9 : 0.75,
+      };
+    },
+    onEachFeature: (f, l) => {
+      const p = f.properties;
+      const isConf = p.status === 'confirmed';
+      const badge = isConf
+        ? '<span style="background:#fce8e6;color:#c5221f;padding:1px 5px;border-radius:3px;font-weight:600;font-size:11px;">Confirmed priority</span>'
+        : '<span style="background:#fef7e0;color:#b06000;padding:1px 5px;border-radius:3px;font-weight:600;font-size:11px;">Data-deficient (audit needed)</span>';
+      l.bindTooltip(
+        `<b>${p.name || 'unnamed street'}</b> &middot; ${p.highway_class}<br>
+         ${badge}<br>
+         SSR Index: <b>${fmt(p.ssr_index, 3)}</b> [${fmt(p.ssr_index_lo, 3)} &ndash; ${fmt(p.ssr_index_hi, 3)}]<br>
+         Uncertainty width: &plusmn;${fmt(p.ci_width ? p.ci_width / 2 : 0, 3)}`
+      );
+    }
+  }).addTo(map);
 
   const schools = L.geoJSON(c.schools, {
     pointToLayer:(f,ll)=>L.circleMarker(ll,{
@@ -332,7 +364,8 @@ function show(key){
   document.getElementById('stats').innerHTML = `
     <tr><td class="k">Schools</td><td class="v">${s.schools}</td></tr>
     <tr><td class="k">Street segments analysed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
-    <tr><td class="k">Streets scoring &le; 0.20</td><td class="v">${s.worst_n.toLocaleString()}</td></tr>
+    <tr><td class="k">Confirmed priorities (hi &le; 0.20)</td><td class="v" style="color:#b30000">${(s.confirmed_n || 0).toLocaleString()}</td></tr>
+    <tr><td class="k">Data-deficient candidates</td><td class="v" style="color:#e68a00">${(s.candidate_n || 0).toLocaleString()}</td></tr>
     <tr><td class="k">Mean reach ratio (10 min)</td><td class="v">${fmt(s.reach_mean,3)}</td></tr>
     <tr><td class="k">Median residents reachable</td><td class="v">${s.pop_median?s.pop_median.toLocaleString():'&mdash;'}</td></tr>
     <tr><td class="k">Population-weighted reach</td><td class="v">${fmt(s.pop_reach_mean,3)}</td></tr>`;
