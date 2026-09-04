@@ -50,7 +50,7 @@ log = logging.getLogger("pop")
 
 
 def corridors(G, edges, schools, nodes, radius_m, half_width,
-              weight="length", budget=None):
+              weight="length", budget=None, direction="from_school"):
     """Reachable and straight-line corridors per school, built identically.
 
     ``weight``/``budget`` mirror the walkshed routing. They must match what
@@ -60,6 +60,9 @@ def corridors(G, edges, schools, nodes, radius_m, half_width,
     """
     sindex = edges.sindex
     reach, circle = [], []
+    # Must match the direction 01_build_city.py routed with, or the population
+    # figures describe a different catchment from the walksheds they annotate.
+    R = walksheds.routing_graph(G, direction)
 
     for idx in schools.index:
         node = nodes[idx]
@@ -71,7 +74,7 @@ def corridors(G, edges, schools, nodes, radius_m, half_width,
             continue
 
         sub = nx.ego_graph(
-            G, int(node),
+            R, int(node),
             radius=(budget if budget is not None else radius_m),
             distance=weight,
         )
@@ -91,7 +94,8 @@ def corridors(G, edges, schools, nodes, radius_m, half_width,
     return reach, circle
 
 
-def main(city_key: str, check_buffer: bool = False, slope: bool = False) -> None:
+def main(city_key: str, check_buffer: bool = False, slope: bool = False,
+         direction: str = "from_school") -> None:
     config.ensure_dirs()
     city = config.get_city(city_key)
     log.info("=== population: %s ===", city.place)
@@ -121,6 +125,7 @@ def main(city_key: str, check_buffer: bool = False, slope: bool = False) -> None
             reach, circle = corridors(
                 G, edges, schools, nodes, radius, half_width, weight=weight,
                 budget=(minute * 60.0 if weight == "walk_time" else radius),
+                direction=direction,
             )
 
             gr = gpd.GeoDataFrame(geometry=reach, crs=city.crs)
@@ -192,7 +197,10 @@ if __name__ == "__main__":
     ap.add_argument("city")
     ap.add_argument("--check-buffer", action="store_true",
                     help="also run at 20 m half-width to verify the buffer cancels")
+    ap.add_argument("--direction", choices=walksheds.DIRECTIONS, default="from_school",
+                    help="must match what 01_build_city.py used")
     ap.add_argument("--slope", action="store_true",
                     help="route on terrain-adjusted time; must match 01_build_city.py")
     args = ap.parse_args()
-    main(args.city, check_buffer=args.check_buffer, slope=args.slope)
+    main(args.city, check_buffer=args.check_buffer, slope=args.slope,
+         direction=args.direction)

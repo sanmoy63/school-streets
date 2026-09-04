@@ -100,7 +100,8 @@ def coverage_report(segments: gpd.GeoDataFrame, city_key: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
+def main(city_key: str, refresh: bool = False, slope: bool = False,
+         direction: str = "from_school") -> None:
     t0 = time.time()
     config.ensure_dirs()
     city = config.get_city(city_key)
@@ -124,7 +125,8 @@ def main(city_key: str, refresh: bool = False, slope: bool = False) -> None:
         terrain.add_walk_time(G, dem, float(config.params("walkshed")["walk_speed_kmh"]))
         weight = "walk_time"
 
-    sheds = walksheds.build_walksheds(G, schools, city, weight=weight)
+    sheds = walksheds.build_walksheds(G, schools, city, weight=weight,
+                                      direction=direction)
     sheds.to_file(config.DATA_PROCESSED / f"{city.key}_walksheds.gpkg", driver="GPKG")
 
     summary = (
@@ -233,7 +235,13 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("city", help="city key from config/cities.yml, e.g. rotterdam")
     ap.add_argument("--refresh", action="store_true", help="ignore cached OSM downloads")
+    ap.add_argument("--direction", choices=walksheds.DIRECTIONS, default="from_school",
+                    help="which trip to route: 'from_school' (default, and what "
+                         "every published figure used) or 'to_school', the "
+                         "morning walk. Identical on flat ground; on the "
+                         "slope-adjusted graph they differ.")
     ap.add_argument("--slope", action="store_true",
                     help="route on terrain-adjusted walking time instead of flat distance")
     args = ap.parse_args()
-    main(args.city, refresh=args.refresh, slope=args.slope)
+    main(args.city, refresh=args.refresh, slope=args.slope,
+         direction=args.direction)

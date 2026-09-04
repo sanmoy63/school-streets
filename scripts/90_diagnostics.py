@@ -104,7 +104,8 @@ def diag_corridor_width(G, schools, city, sample_idx, minutes=10) -> pd.DataFram
 # B. A severance measure with no width parameter
 # ---------------------------------------------------------------------------
 
-def diag_node_reach(G, schools, city, sample_idx, minutes=10) -> pd.DataFrame:
+def diag_node_reach(G, schools, city, sample_idx, minutes=10,
+                    direction="from_school") -> pd.DataFrame:
     section("B. Corridor-free severance: node reach ratio")
     print(
         "reach_ratio = (network-reachable nodes within r) / (nodes within r as the\n"
@@ -124,7 +125,12 @@ def diag_node_reach(G, schools, city, sample_idx, minutes=10) -> pd.DataFrame:
         node = int(snapped[idx])
         pt = schools.geometry.loc[idx]
 
-        reachable = set(nx.ego_graph(G, node, radius=radius, distance="length").nodes)
+        # Routed through the same helper as walksheds.py so the diagnostic and
+        # the pipeline cannot silently disagree about which trip is measured.
+        reachable = set(
+            nx.ego_graph(walksheds.routing_graph(G, direction), node,
+                         radius=radius, distance="length").nodes
+        )
         in_circle = nodes_gdf.index[nodes_gdf.geometry.distance(pt) <= radius]
         if len(in_circle) == 0:
             continue

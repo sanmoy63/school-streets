@@ -34,6 +34,35 @@ log = logging.getLogger(__name__)
 # without merging parallel streets across a block.
 CORRIDOR_HALF_WIDTH_M = 40.0
 
+# Which trip is being measured.
+#
+# ``nx.ego_graph`` follows out-edges, so the default measures what is reachable
+# *from* the school -- the walk home. On a flat, distance-weighted graph the two
+# directions are identical and the distinction is empty. On the slope-adjusted
+# graph they are not: for a school at the top of a hill the walk home is the
+# downhill one, so "from_school" reports the easier direction, while the
+# question the study asks -- how far can a child walk *to* school -- is the
+# uphill one.
+#
+# The default is deliberately the historical behaviour, because every published
+# figure in notes/method_note.md was produced with it and changing it silently
+# would make the repository disagree with its own paper. Pass "to_school" to
+# measure the morning trip; see scripts/01_build_city.py --direction.
+DIRECTIONS = ("from_school", "to_school")
+
+
+def routing_graph(G, direction: str = "from_school"):
+    """The graph to route on for a given trip direction.
+
+    ``to_school`` returns a reversed *view*, not a copy: it costs nothing, and
+    it reads edge attributes through to the original, so it must be taken after
+    ``terrain.add_walk_time`` has written ``walk_time``. The view is frozen,
+    which is the desired property here -- routing must not mutate the graph.
+    """
+    if direction not in DIRECTIONS:
+        raise ValueError(f"direction must be one of {DIRECTIONS}, got {direction!r}")
+    return G.reverse(copy=False) if direction == "to_school" else G
+
 
 def minutes_to_metres(minutes: float, speed_kmh: float) -> float:
     """Convert a walking-time threshold to network metres."""
@@ -71,6 +100,7 @@ def reach_ratio(
     radius_m: float,
     weight: str = "length",
     budget: float | None = None,
+    direction: str = "from_school",
 ) -> pd.Series:
     """Severance measure: reachable nodes / nodes within the crow-flies circle.
 
@@ -102,6 +132,7 @@ def reach_ratio(
     """
     nodes_gdf = ox.graph_to_gdfs(G, nodes=True, edges=False)
     snapped = snap_schools(G, schools)
+    R = routing_graph(G, direction)
 
     out = pd.Series(np.nan, index=schools.index, dtype=float)
     for idx in schools.index:
@@ -109,7 +140,7 @@ def reach_ratio(
             continue
         reachable = set(
             nx.ego_graph(
-                G, int(snapped[idx]),
+                R, int(snapped[idx]),
                 radius=(budget if budget is not None else radius_m),
                 distance=weight,
             ).nodes
@@ -124,10 +155,10 @@ def reach_ratio(
 
 
 def _walkshed_polygon(G, source_node, radius_m: float, weight: str = "length",
-                      budget: float | None = None):
+                      budget: float | None = None, direction: str = "from_school"):
     """Dissolved network-buffer polygon for one origin at one radius."""
     sub = nx.ego_graph(
-        G, source_node,
+        routing_graph(G, direction), source_node,
         radius=(budget if budget is not None else radius_m),
         distance=weight,
     )
@@ -144,6 +175,7 @@ def build_walksheds(
     city: City,
     minutes: list[int] | None = None,
     weight: str = "length",
+    direction: str = "from_school",
 ) -> gpd.GeoDataFrame:
     """Walkshed polygons for every school at every time threshold.
 
@@ -177,7 +209,8 @@ def build_walksheds(
             # ints, and an explicit cast keeps the lookup from depending on
             # numpy/pandas scalar hashing equivalence.
             poly = _walkshed_polygon(G, int(nodes[idx]), radius,
-                                     weight=weight, budget=budget)
+                                     weight=weight, budget=budget,
+                                     direction=direction)
             if poly is None or poly.is_empty:
                 continue
             records.append(
@@ -205,6 +238,7 @@ def build_walksheds(
         rr = reach_ratio(
             G, schools, radius, weight=weight,
             budget=(minute * 60.0 if weight == "walk_time" else radius),
+            direction=direction,
         )
         sel = out["minutes"] == minute
         out.loc[sel, "reach_ratio"] = (
