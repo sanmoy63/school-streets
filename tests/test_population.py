@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 import pytest
 import rasterio
 from rasterio.transform import from_origin
@@ -172,3 +173,116 @@ def test_coarse_subsample_visibly_degrades_accuracy(uniform_raster):
     exact = zonal_population(g, path, subsample=50).iloc[0]
     coarse = zonal_population(g, path, subsample=5).iloc[0]
     assert abs(coarse - exact) > 0.4 * exact
+
+
+# --- the free parameter reach_ratio does not have, and this measure does -----
+#
+# `test_reach_ratio_has_no_free_width_parameter` in test_walksheds.py pins that
+# the node-based severance measure takes only a radius. The population-weighted
+# measure is not in that position: it is built from corridors buffered at
+# CORRIDOR_HALF_WIDTH_M, and although numerator and denominator share the width
+# so it partly cancels, measurement says it does not cancel out. Sweeping
+# 10-80 m moves the mean by 56.0/24.8/16.5% of its default-width value in Genova
+# and 27.9/11.6/6.4% in Rotterdam at 5/10/15 minutes -- most at the short
+# thresholds, where the buffer is the largest share of a short corridor.
+#
+# The first version of this test asserted that `corridors` has a `half_width`
+# parameter. That passes on an implementation that accepts the argument and
+# never reads it, so it could not catch the regression it named. These exercise
+# the behaviour instead.
+
+
+def _corridors_module():
+    import importlib.util
+    from pathlib import Path
+
+    spec = importlib.util.spec_from_file_location(
+        "pop_script",
+        Path(__file__).resolve().parents[1] / "scripts" / "05_population.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _line_graph():
+    """Three nodes on a 200 m straight line, with edge geometry."""
+    import networkx as nx
+    from shapely.geometry import LineString
+
+    G = nx.MultiDiGraph()
+    G.graph["crs"] = GHS_CRS
+    xs = {1: 300_000.0, 2: 300_100.0, 3: 300_200.0}
+    for n, x in xs.items():
+        G.add_node(n, x=x, y=6_079_000.0)
+    for u, v in [(1, 2), (2, 1), (2, 3), (3, 2)]:
+        G.add_edge(u, v, 0, length=100.0,
+                   geometry=LineString([(xs[u], 6_079_000.0), (xs[v], 6_079_000.0)]))
+    edges = gpd.GeoDataFrame(
+        geometry=[LineString([(xs[1], 6_079_000.0), (xs[3], 6_079_000.0)])],
+        crs=GHS_CRS,
+    )
+    schools = gpd.GeoDataFrame(
+        {"school_id": ["t_0001"], "name": ["T"]},
+        geometry=gpd.points_from_xy([xs[1]], [6_079_000.0]), crs=GHS_CRS,
+    )
+    nodes = pd.Series([1], index=schools.index, dtype="Int64")
+    return G, edges, schools, nodes
+
+
+def test_corridor_area_actually_responds_to_half_width():
+    """The behaviour the signature test only gestured at.
+
+    A wider buffer must produce a larger corridor. If this fails, `half_width`
+    is being accepted and ignored -- which is exactly the shape of bug the old
+    signature-only assertion would have passed straight through.
+    """
+    mod = _corridors_module()
+    G, edges, schools, nodes = _line_graph()
+
+    reach_20, circle_20 = mod.corridors(G, edges, schools, nodes, 250.0, 20.0)
+    reach_40, circle_40 = mod.corridors(G, edges, schools, nodes, 250.0, 40.0)
+
+    assert reach_20[0] is not None and reach_40[0] is not None
+    assert reach_40[0].area > reach_20[0].area * 1.5, (
+        "doubling the half-width barely moved the corridor; half_width may be "
+        "accepted and unused"
+    )
+    assert circle_40[0].area > circle_20[0].area
+
+
+def test_the_two_corridors_do_not_scale_identically():
+    """Why the width does not simply cancel.
+
+    Numerator and denominator share the half-width, which is why the ratio is
+    far more stable than the area-based measure it replaced. It is not exact:
+    the reachable corridor and the straight-line corridor are different shapes,
+    so they do not scale by the same factor.
+    """
+    mod = _corridors_module()
+    G, edges, schools, nodes = _line_graph()
+
+    r20, c20 = mod.corridors(G, edges, schools, nodes, 120.0, 20.0)
+    r40, c40 = mod.corridors(G, edges, schools, nodes, 120.0, 40.0)
+
+    assert r20[0] is not None and c20[0] is not None
+    ratio_reach = r40[0].area / r20[0].area
+    ratio_circle = c40[0].area / c20[0].area
+    assert ratio_reach != pytest.approx(ratio_circle, rel=1e-6), (
+        "if both scaled identically the width would cancel exactly, and the "
+        "measured 4.6-16.9% drift across a 10-80 m sweep could not occur"
+    )
+
+
+def test_reach_ratio_still_has_no_width_parameter():
+    """Guards the contrast rather than the measure -- if this ever fails, the
+    node measure has acquired the defect the population one already carries."""
+    import inspect
+
+    from routes_ssr.walksheds import reach_ratio
+
+    assert not any(
+        k in p.lower()
+        for p in inspect.signature(reach_ratio).parameters
+        for k in ("width", "buffer", "corridor", "half")
+    )

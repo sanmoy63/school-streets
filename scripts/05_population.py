@@ -48,6 +48,18 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-7s %(m
                     datefmt="%H:%M:%S")
 log = logging.getLogger("pop")
 
+# Corridor half-widths swept to bound the population measure.
+#
+# The measure is built from corridors buffered at CORRIDOR_HALF_WIDTH_M, so that
+# width is a free parameter -- unlike reach_ratio, which has none. Numerator and
+# denominator share it and it therefore partly cancels, but only partly, so a
+# point estimate at one width is not identified. This range brackets the
+# defensible choices: 10 m is a bare carriageway edge, 80 m reaches well past
+# the buildings fronting a street, and 40 m (the default) sits in the middle.
+# It is the same range over which the area-based network_ratio this measure
+# replaced was shown to move 0.21 -> 0.61.
+BUFFER_SWEEP_M = (10.0, 20.0, 40.0, 80.0)
+
 
 def corridors(G, edges, schools, nodes, radius_m, half_width,
               weight="length", budget=None, direction="from_school"):
@@ -115,7 +127,7 @@ def main(city_key: str, check_buffer: bool = False, slope: bool = False,
         dem = terrain.fetch_dem(city)
         terrain.add_walk_time(G, dem, speed)
         weight = "walk_time"
-    widths = [walksheds.CORRIDOR_HALF_WIDTH_M] + ([20.0] if check_buffer else [])
+    widths = list(BUFFER_SWEEP_M) if check_buffer else [walksheds.CORRIDOR_HALF_WIDTH_M]
 
     frames = []
     for half_width in widths:
@@ -148,6 +160,22 @@ def main(city_key: str, check_buffer: bool = False, slope: bool = False,
             }))
 
     out = pd.concat(frames, ignore_index=True)
+
+    # The identified set over the corridor width, matching how the segment index
+    # reports ssr_index_lo/hi. Where the width was not swept these are NaN
+    # rather than equal to the point estimate: an unswept parameter is unknown,
+    # not known to be irrelevant.
+    if len(widths) > 1:
+        band = (
+            out.groupby(["school_id", "minutes"])["pop_reach_ratio"]
+            .agg(pop_reach_ratio_lo="min", pop_reach_ratio_hi="max")
+            .reset_index()
+        )
+        out = out.merge(band, on=["school_id", "minutes"], how="left")
+    else:
+        out["pop_reach_ratio_lo"] = np.nan
+        out["pop_reach_ratio_hi"] = np.nan
+
     out.to_csv(config.OUT_TABLES / f"{city.key}_population.csv", index=False)
 
     main_w = walksheds.CORRIDOR_HALF_WIDTH_M
@@ -179,15 +207,61 @@ def main(city_key: str, check_buffer: bool = False, slope: bool = False,
                      r["pop_reachable"], r["pop_straightline"])
 
     if check_buffer:
-        log.info("--- buffer-width check (the failure mode of network_ratio) ---")
+        log.info("--- corridor-width identified set ---")
+        b = core.dropna(subset=["pop_reach_ratio_lo"])
+        for minute, g in b.groupby("minutes"):
+            log.info(
+                "  %2d min: %.3f  [%.3f, %.3f]  width %.3f",
+                minute, g["pop_reach_ratio"].mean(),
+                g["pop_reach_ratio_lo"].mean(), g["pop_reach_ratio_hi"].mean(),
+                g["pop_reach_ratio_hi"].mean() - g["pop_reach_ratio_lo"].mean(),
+            )
+        log.info("--- buffer-width sensitivity ---")
         piv = out.pivot_table(index="minutes", columns="half_width_m",
                               values="pop_reach_ratio", aggfunc="mean")
         log.info("\n%s", piv.round(4).to_string())
-        cols = list(piv.columns)
-        if len(cols) == 2:
-            drift = (piv[cols[1]] - piv[cols[0]]).abs().max()
-            log.info("  max drift across %s m vs %s m half-width: %.4f", cols[0], cols[1], drift)
-            log.info("  (area-based network_ratio moved 0.21 -> 0.61 over a comparable sweep)")
+        cols = sorted(piv.columns)
+        if len(cols) > 1:
+            ref = walksheds.CORRIDOR_HALF_WIDTH_M
+            sens = piv.copy()
+            sens.columns = [f"ratio_{c:.0f}m" for c in cols]
+            sens.insert(0, "city", city.key)
+            sens["span"] = (piv.max(axis=1) - piv.min(axis=1)).round(4)
+            sens["span_pct_of_default"] = (
+                (piv.max(axis=1) - piv.min(axis=1)) / piv[ref] * 100
+            ).round(1)
+            sens = sens.round(4).reset_index()
+            sens.to_csv(
+                config.OUT_TABLES / f"{city.key}_buffer_sensitivity.csv", index=False
+            )
+            worst = float(sens["span_pct_of_default"].max())
+            # The level is not parameter-free. Halving the half-width moves it
+            # by several per cent, most at short thresholds where the buffer is
+            # a larger share of the corridor. This is far milder than the
+            # area-based network_ratio it replaced -- that moved 0.21 -> 0.61
+            # over a comparable sweep -- but "milder" is not "cancels", and the
+            # flag that produced this table used to be described as verifying
+            # cancellation.
+            log.warning(
+                "pop_reach_ratio spans up to %.1f%% of its default-width value "
+                "across half-widths %s m. The LEVEL is not identified by the "
+                "data alone -- it is conditional on a parameter no evidence "
+                "fixes -- so report the interval, not three decimals of the "
+                "point estimate. Cross-city GAPS are far more stable, because "
+                "the width enters both cities the same way.",
+                worst, "/".join(f"{c:.0f}" for c in cols),
+            )
+            log.info("-> outputs/tables/%s_buffer_sensitivity.csv", city.key)
+    else:
+        log.warning(
+            "reported without a buffer sweep: pop_reach_ratio is built from "
+            "corridors buffered at %.0f m, and that half-width is a free "
+            "parameter. Unlike reach_ratio, which has none by construction, "
+            "this measure inherits it -- numerator and denominator share the "
+            "width so it partly cancels, but only partly. Re-run with "
+            "--check-buffer to quantify it for this city.",
+            walksheds.CORRIDOR_HALF_WIDTH_M,
+        )
 
     log.info("-> outputs/tables/%s_population.csv", city.key)
 
@@ -196,7 +270,8 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("city")
     ap.add_argument("--check-buffer", action="store_true",
-                    help="also run at 20 m half-width to verify the buffer cancels")
+                    help="sweep corridor half-widths (%s m) to bound the measure"
+                         % "/".join(f"{w:.0f}" for w in BUFFER_SWEEP_M))
     ap.add_argument("--direction", choices=walksheds.DIRECTIONS, default="from_school",
                     help="must match what 01_build_city.py used")
     ap.add_argument("--slope", action="store_true",
