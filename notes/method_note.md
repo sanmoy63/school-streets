@@ -933,7 +933,7 @@ minutes:
 |---|---|---|---|
 | median residents reachable, slope | 2,417 (was 2,470) | 3,240 | 3,162 |
 | `pop_reach_ratio`, flat | 0.450 | 0.440 | 0.440 |
-| `pop_reach_ratio`, slope | 0.413 (was 0.418) | 0.292 | **0.285** |
+| `pop_reach_ratio`, slope | 0.412 (was 0.418) | 0.292 | **0.285** |
 
 Across thresholds, Genova revised against published:
 
@@ -943,7 +943,7 @@ Across thresholds, Genova revised against published:
 | median residents reachable | 881 (was 905) | 3,162 (was 3,240) | 7,122 (was 7,420) |
 
 **The population-weighted gap is essentially unchanged**: 0.126 as published,
-0.1276 recomputed. The DEM correction moves both cities slightly and the
+0.127 recomputed. The DEM correction moves both cities slightly and the
 difference between them barely shifts. Weighting by where people live still
 amplifies the terrain effect, because Genova's hillside neighbourhoods are
 densely populated: the steep ground is not empty.

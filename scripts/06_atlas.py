@@ -339,11 +339,14 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <div id="wrap">
  <div id="side">
   <div>
-   <div class="badge">Open Urban Atlas &middot; Spatial Data Observability</div>
-   <h1 style="margin-top: 8px;">School-Street Readiness Atlas</h1>
+   <div class="badge">School streets &middot; Rotterdam and Genova</div>
+   <h1 style="margin-top: 8px;">How far can a child walk to school?</h1>
    <p class="sub" style="margin-top: 6px;">
-    Evaluating school access in contrasting topographies: flat <b>Rotterdam</b> versus vertical <b>Genova</b>.
-    Comparing local priorities against data-observability bounds to prevent missing-data bias.
+    Two cities, chosen because one is flat and one is not. <b>Rotterdam</b> runs from
+    &minus;18 m to +33 m. <b>Genova</b> climbs from the sea to over 1,100 m, with 290 km
+    of public stairways. The maps below show every school, the streets a child could
+    actually reach on foot in ten minutes, and how much of what looks close by is
+    genuinely walkable.
    </p>
   </div>
 
@@ -353,19 +356,19 @@ _TEMPLATE = r"""<!DOCTYPE html>
 
   <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);">
    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</div>
-   <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">&mdash;</p>
-   <div style="font-size:11px; line-height:1.45; color:var(--slate-600); margin-top:8px; border-top:1px dashed rgba(74,20,134,0.2); padding-top:6px;" id="city-audit-body">&mdash;</div>
+   <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">n/a</p>
+   <div style="font-size:11px; line-height:1.45; color:var(--slate-600); margin-top:8px; border-top:1px dashed rgba(74,20,134,0.2); padding-top:6px;" id="city-audit-body">n/a</div>
   </div>
 
   <div class="card">
    <div class="card-title">City Network Overview</div>
    <div class="grid-stats">
     <div class="stat-box confirmed">
-     <div class="stat-val" id="stat-confirmed">&mdash;</div>
+     <div class="stat-val" id="stat-confirmed">n/a</div>
      <div class="stat-lbl">Confirmed Priorities<br><span style="font-size:9px;color:#991b1b;">Upper bound &le; 0.20</span></div>
     </div>
     <div class="stat-box candidate">
-     <div class="stat-val" id="stat-candidate">&mdash;</div>
+     <div class="stat-val" id="stat-candidate">n/a</div>
      <div class="stat-lbl">Data-Deficient Candidates<br><span style="font-size:9px;color:#92400e;">Missing tags (audit needed)</span></div>
     </div>
    </div>
@@ -377,15 +380,15 @@ _TEMPLATE = r"""<!DOCTYPE html>
    <div class="legend-item">
     <div class="legend-icon" style="background:#b30000;"></div>
     <div>
-     <b style="color:#b30000;">Confirmed Intervention Priorities</b><br>
-     <span class="sub">ssr_index_hi &le; 0.20 &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
+     <b style="color:#b30000;">Streets that need work</b><br>
+     <span class="sub">These score badly even if every missing tag turned out to be favourable. The verdict does not depend on what we could not observe.</span>
     </div>
    </div>
    <div class="legend-item">
     <div class="legend-icon" style="background:#d97706;"></div>
     <div>
-     <b style="color:#d97706;">Data-Deficient Candidates</b><br>
-     <span class="sub">index &le; 0.20 but hi &gt; 0.20 &mdash; flagged by default penalties; target for audit, not civil works.</span>
+     <b style="color:#d97706;">Streets we cannot judge yet</b><br>
+     <span class="sub">These score badly on what is recorded, but favourable values for the missing tags would clear them. They need a survey, not construction.</span>
     </div>
    </div>
    <div class="legend-item">
@@ -407,26 +410,63 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
 
   <div class="card" style="display:flex; flex-direction:column; gap:10px;">
-   <div class="card-title">Methodological Insights &amp; Audit Results</div>
+   <div class="card-title">How to read this</div>
+   <div class="note">
+    <b>What was measured.</b>
+    We take the walking network from OpenStreetMap, find every primary school and
+    kindergarten, and work outwards from each one at 3.6 km/h. That is a child's pace
+    walking with an adult, not the 4.8 km/h usually assumed for grown-ups. Each street
+    is scored on how safe it looks for a child on foot, using the data the city
+    actually publishes.
+   </div>
+   <div class="note">
+    <b>Walking time, not distance.</b>
+    Slope changes everything in Genova, so travel time along each street comes from its
+    gradient, measured against a 30 m elevation model. Going up costs more than coming
+    down, so the route to school and the route home are priced separately. Stairways
+    are treated as steep even where the elevation model smooths them flat.
+   </div>
+   <div class="note">
+    <b><code>reach_ratio</code>: how much of what is nearby can you get to?</b>
+    Draw a circle around a school. Count the street junctions inside it. Then count how
+    many of those a child could actually walk to within the time budget. The ratio is
+    the second number over the first. 1.0 means the network costs the child nothing.
+    0.3 means two thirds of what looks close cannot be reached on foot, because of
+    hills, rivers, railways or main roads in the way.
+   </div>
+   <div class="note">
+    <b><code>pop_reach_ratio</code>: the same thing, counted in people.</b>
+    Residents living along the streets a child can reach, divided by residents living
+    along every street within the same straight-line distance. It answers how many
+    neighbours are genuinely within walking range rather than how much ground is.
+   </div>
+   <div class="note">
+    <b>Identified sets: the range the answer could take.</b>
+    Where a street is missing data, we do not guess. We work out the highest and lowest
+    the score could be across everything the missing values might have been, and report
+    that range. Two cities whose ranges overlap are not different, however far apart
+    their headline numbers look.
+   </div>
+   <div class="card-title" style="margin-top:6px;">What the data cannot tell us</div>
    <div class="note warn">
-    <b>Pavements are unobservable in standard OSM tags.</b>
-    In Rotterdam, <code>sidewalk</code> appears on 0 of 68,464 road ways because sidewalks are drawn as separate footway geometries. In Genova, inline sidewalk tags are sparsely recorded. Absence of tags indicates mapping style, not absence of physical pavements.
+    <b>We cannot tell where the pavements are.</b>
+    In Rotterdam the <code>sidewalk</code> tag appears on 0 of 68,464 roads, because Dutch mappers draw pavements as separate lines rather than as a property of the road. Genova records them only patchily. An untagged street is one nobody has recorded, not a street without a pavement, so this indicator is left out of the index rather than scored as zero.
    </div>
    <div class="note warn">
-    <b>Traffic calming measures mapper density, not street calming.</b>
-    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova (a $28\times$ disparity from 3,806 vs 73 tags). These are detection rates, not prevalence rates.
+    <b>Traffic calming counts mappers, not speed bumps.</b>
+    Calming features are recorded beside 17.2% of Rotterdam's streets and 0.62% of Genova's, from 3,806 tags against 73. Rotterdam does not have 28 times more speed bumps. It has more people entering them into OpenStreetMap. These are detection rates, so they set a floor on what exists and cannot be read as a rate.
    </div>
    <div class="note">
-    <b>Topography penalizes access far beyond distance.</b>
-    Planar distance suggested Rotterdam and Genova had comparable school reach (0.507 vs 0.482, a gap of just <b>0.025</b> &mdash; and by 15 minutes Genova scores <i>above</i> Rotterdam). Factoring elevation over a 30m DEM (Tobler's hiking function) separates them by <b>0.163</b> (reach drops to 0.296 in Genova), and by <b>0.128</b> when resident-weighted &mdash; in the same direction at every threshold. Terrain does not widen a known gap; it is what makes the gap exist at all.
+    <b>Hills matter more than distance.</b>
+    Measured on flat distance, the two cities look alike: 0.507 for Rotterdam against 0.482 for Genova, a gap of 0.025. Stretch the walk to fifteen minutes and Genova scores <i>higher</i> than Rotterdam. Price the same walks by slope and they separate by 0.162, with Genova falling to 0.296, and by 0.128 when counted in residents rather than junctions. Terrain does not widen a gap that was already there. It is what makes the gap appear at all.
    </div>
    <div class="note">
-    <b>Street-level imagery cannot fill the gaps (Audit Findings).</b>
-    A stratified audit of open imagery (KartaView) across road classes yielded 0% coverage on untagged networks (Wilson 95% bound &le; 2.4%). Car-mounted cameras cannot navigate Genova's historic pedestrian <em>creuse</em>, alleys, and stairways—imputing attributes from imagery would create severe car-centric selection bias.
+    <b>Street photography cannot fill the gaps.</b>
+    We sampled open street-level imagery across road types to see whether it could supply the missing tags. Coverage on untagged streets was 0%, and at 95% confidence no higher than 2.4%. The reason is simple: the cameras are mounted on cars, and Genova's <em>creuze</em>, alleys and stairways have no cars on them. Filling the gaps from imagery would describe the streets cars drive down, which is the opposite of what this study is about.
    </div>
    <div class="note">
-    <b>Identified sets prevent false cross-city claims.</b>
-    Because missing speed and sidewalk data create an uncertainty interval width of &sim;0.35, inter-city differences smaller than this width cannot be distinguished from missing-data bias. Only 1 of 9 indicators (<code>highway_class</code>) survives cross-city harmonisation.
+    <b>The two cities cannot be compared street by street.</b>
+    To compare fairly, both cities must be scored on the same indicators. Only one of nine survives that test: road class. Speed limits are recorded on 80% of Rotterdam's roads and 9% of Genova's, which is a difference in record-keeping rather than in streets. Road class is the same lookup in both cities, so the one difference that survives is a difference in the mix of road types each city contains, not in anything measured on them. The street-level comparison is shown for inspection and supports no claim.
    </div>
   </div>
 
@@ -499,7 +539,7 @@ function radius(p){
   if(p===null||p===undefined||isNaN(p)) return 4;
   return Math.max(3, Math.min(15, Math.sqrt(p)/14));
 }
-function fmt(v,d){ return (v===null||v===undefined||isNaN(v)) ? '&mdash;' : Number(v).toFixed(d); }
+function fmt(v,d){ return (v===null||v===undefined||isNaN(v)) ? 'n/a' : Number(v).toFixed(d); }
 
 let currentCityKey = null;
 let currentFilter = 'all';
@@ -608,7 +648,7 @@ function show(key){
           <div style="font-weight:800; font-size:13px; margin-bottom:4px;">${p.name || 'Unnamed School'}</div>
           <div style="font-size:12px; color:#475569;">
             Reachable Network Share: <b>${fmt(p.reach_ratio_10, 3)}</b><br>
-            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : '&mdash;'}</b><br>
+            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : 'n/a'}</b><br>
             Population-Weighted Reach: <b>${fmt(p.pop_reach_ratio, 3)}</b>
           </div>
         </div>`
@@ -631,7 +671,7 @@ function show(key){
     <tr><td class="k">Street Segments Analyzed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
     <tr><td class="k">Total Deficient (Score &le; 0.20)</td><td class="v">${s.worst_n.toLocaleString()}</td></tr>
     <tr><td class="k">Mean 10-min Reach Ratio</td><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
-    <tr><td class="k">Median Reachable Residents</td><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : '&mdash;'}</td></tr>
+    <tr><td class="k">Median Reachable Residents</td><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : 'n/a'}</td></tr>
     <tr><td class="k">Population-Weighted Reach</td><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
   `;
 
