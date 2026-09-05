@@ -133,7 +133,7 @@ def build_city(key: str) -> dict | None:
             if key == "rotterdam"
             else
             "In Genova, 70% of candidate streets (1,679 of 2,406) are data-deficient candidates rather than confirmed failures, "
-            "due to missing speed limits (9.4% tagged) and sidewalk tags. Vertical topography drops walkable school reach to 0.305."
+            "due to missing speed limits (9.4% tagged) and sidewalk tags. Vertical topography drops walkable school reach to 0.296."
         ),
         "audit_insight": (
             "Rotterdam imagery audit shows 0% open coverage on sampled untagged links (Wilson 95% bound ≤ 2.1%). "
@@ -418,7 +418,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
    </div>
    <div class="note">
     <b>Topography penalizes access far beyond distance.</b>
-    Planar distance suggested Rotterdam and Genova had comparable school reach (0.508 vs 0.481). Factoring elevation over a 30m DEM (Tobler's hiking function) reveals a <b>5.8&times;</b> severance disparity (reach drops to 0.305 in Genova), expanding to <b>12.6&times;</b> when resident-weighted.
+    Planar distance suggested Rotterdam and Genova had comparable school reach (0.507 vs 0.482, a gap of just <b>0.025</b> &mdash; and by 15 minutes Genova scores <i>above</i> Rotterdam). Factoring elevation over a 30m DEM (Tobler's hiking function) separates them by <b>0.163</b> (reach drops to 0.296 in Genova), and by <b>0.128</b> when resident-weighted &mdash; in the same direction at every threshold. Terrain does not widen a known gap; it is what makes the gap exist at all.
    </div>
    <div class="note">
     <b>Street-level imagery cannot fill the gaps (Audit Findings).</b>
