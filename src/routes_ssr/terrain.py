@@ -83,6 +83,49 @@ MIN_SPEED_KMH = 0.4
 # a fabricated coastline.
 DEM_NODATA = -32768.0
 
+# How a merged edge carrying several highway tags is classified for the stair
+# rule.
+#
+# OSMnx is called with simplify=True, so a chain of OSM ways becomes one graph
+# edge and its `highway` attribute becomes a list -- 5,826 of Genova's 101,904
+# edges, 3,656 of them containing "steps". The previous code read `highway[0]`,
+# and Overpass does not guarantee the order ways come back in: refetching the
+# same graph returned 5,131 of those 5,826 lists reordered, same contents, so
+# `['footway','steps']` and `['steps','footway']` alternate between runs.
+#
+# The consequence was not jitter. Because the ordering is consistent within a
+# response, each run landed near one of two specifications: 3,202 stairways
+# raised and reach_ratio 0.3103, or 6,444 and 0.2959. Three runs of unchanged
+# code gave 5,295, 6,396 and 3,280. A 0.014 spread in the headline figure, all
+# of it specification and none of it data.
+#
+# True by default, meaning an edge counts as stairs if any of its component
+# ways is. It is the conservative direction for this study: the question is
+# whether a child can walk the link, an edge containing a flight of stairs
+# contains a flight of stairs, and under-counting stairways in the city whose
+# defining feature is 290 km of them is the worse error. It does over-penalise
+# a long footway carrying a short flight, because simplification does not
+# retain the component lengths needed to weight it. Setting this False scores
+# only edges whose every component is steps and moves Genova's reach_ratio at
+# 10 minutes from 0.296 to 0.310.
+STAIRS_IF_ANY_COMPONENT = True
+
+
+def is_steps(highway) -> bool:
+    """Whether an edge should be treated as stairs, deterministically.
+
+    Order-independent by construction, which `highway[0]` was not.
+    """
+    if highway is None:
+        return False
+    parts = list(highway) if isinstance(highway, (list, tuple)) else [highway]
+    if not parts:
+        return False
+    return (
+        "steps" in parts if STAIRS_IF_ANY_COMPONENT
+        else all(p == "steps" for p in parts)
+    )
+
 
 def _dem_path(city: City) -> Path:
     return DATA_RAW / "dem" / f"{city.key}_dem.tif"
@@ -297,10 +340,7 @@ def add_walk_time(G, dem_path: Path, flat_speed_kmh: float) -> dict:
                 slope = float(np.sign(slope) * MAX_PLAUSIBLE_SLOPE)
                 n_clamped += 1
 
-        highway = data.get("highway")
-        if isinstance(highway, (list, tuple)):
-            highway = highway[0] if highway else None
-        if highway == "steps" and abs(slope) < MIN_STAIR_SLOPE:
+        if is_steps(data.get("highway")) and abs(slope) < MIN_STAIR_SLOPE:
             slope = float(np.sign(slope) if slope else 1.0) * MIN_STAIR_SLOPE
             n_stairs += 1
 

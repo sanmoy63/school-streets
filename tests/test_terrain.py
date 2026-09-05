@@ -18,6 +18,7 @@ from routes_ssr.terrain import (
     MIN_STAIR_SLOPE,
     _tile_name,
     add_walk_time,
+    is_steps,
     sample_node_elevations,
     tiles_for_bounds,
     tobler_speed_kmh,
@@ -319,3 +320,60 @@ def test_nodes_outside_the_dem_are_counted_as_missing(tmp_path):
 
 def test_dem_nodata_sentinel_is_outside_any_real_elevation():
     assert DEM_NODATA < -1000.0
+
+
+# --- merged-edge classification must not depend on tag order -----------------
+#
+# OSMnx merges chains of ways under simplify=True, so `highway` is often a list.
+# Reading highway[0] made the stair rule depend on the order Overpass happened
+# to return -- refetching Genova's graph returned 5,131 of 5,826 lists reordered
+# with identical contents. Runs landed near one of two specifications: 3,202
+# stairways raised (reach 0.3103) or 6,444 (0.2959). Three runs of unchanged
+# code gave 5,295, 6,396 and 3,280.
+
+
+def test_a_scalar_steps_tag_is_steps():
+    assert is_steps("steps")
+    assert not is_steps("footway")
+
+
+def test_classification_is_order_independent():
+    """The regression. Both orderings must give the same answer."""
+    assert is_steps(["footway", "steps"]) == is_steps(["steps", "footway"])
+    assert is_steps(["residential", "steps"]) == is_steps(["steps", "residential"])
+
+
+def test_a_merged_edge_containing_steps_counts_as_steps_by_default():
+    """Documents the choice, so flipping it is deliberate and visible."""
+    from routes_ssr.terrain import STAIRS_IF_ANY_COMPONENT
+
+    assert STAIRS_IF_ANY_COMPONENT is True
+    assert is_steps(["footway", "steps"])
+
+
+def test_empty_and_missing_tags_are_not_steps():
+    assert not is_steps(None)
+    assert not is_steps([])
+
+
+def test_stair_floor_applies_to_a_merged_edge(tmp_path):
+    """End to end: a ['footway','steps'] edge gets the floor whichever way round."""
+    path = tmp_path / "dem.tif"
+    with rasterio.open(
+        path, "w", driver="GTiff", height=4, width=4, count=1, dtype="float32",
+        crs="EPSG:4326", transform=from_origin(8.0, 45.0, 0.01, 0.01), nodata=-9999.0,
+    ) as dst:
+        dst.write(np.zeros((4, 4), dtype="float32"), 1)   # flat: DEM shows no slope
+
+    counts = []
+    for tags in (["footway", "steps"], ["steps", "footway"]):
+        G = nx.MultiDiGraph()
+        G.graph["crs"] = "EPSG:4326"
+        G.add_node(1, x=8.005, y=44.995)
+        G.add_node(2, x=8.015, y=44.995)
+        G.add_edge(1, 2, 0, length=100.0, highway=list(tags))
+        summary = add_walk_time(G, path, FLAT)
+        counts.append(summary["stairs_raised"])
+        assert abs(G[1][2][0]["slope"]) == pytest.approx(MIN_STAIR_SLOPE)
+
+    assert counts[0] == counts[1] == 1, counts
