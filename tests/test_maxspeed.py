@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 import numpy as np
+import pandas as pd
 import pytest
 
 from routes_ssr.segment_index import IMPLICIT_SPEED, parse_maxspeed, score_speed
@@ -49,10 +50,23 @@ def test_unparseable_yields_nan_not_a_guess(raw):
     assert np.isnan(parse_maxspeed(raw))
 
 
-def test_takes_first_element_of_list_tags():
-    # OSM tags arrive as lists when OSMnx merges several ways into one segment.
-    assert parse_maxspeed(["30", "50"]) == 30.0
+def test_merged_segment_takes_the_highest_limit_not_the_first():
+    """OSM tags arrive as lists when OSMnx merges several ways into one segment.
+
+    This asserted 30.0 -- the first element -- which was both optimistic and
+    non-deterministic: Overpass does not fix the order ways come back in, so
+    the same segment scored 30 or 50 depending on the response. The highest
+    limit governs, being the fastest traffic the child meets anywhere along
+    the segment, and it does not depend on ordering.
+    """
+    assert parse_maxspeed(["30", "50"]) == 50.0
+    assert parse_maxspeed(["50", "30"]) == 50.0
     assert np.isnan(parse_maxspeed([]))
+
+
+def test_an_unreadable_component_does_not_hide_a_readable_one():
+    assert parse_maxspeed(["walk", "50"]) == 50.0
+    assert parse_maxspeed(["nonsense", "banana"]) != parse_maxspeed(["30"])
 
 
 def test_implicit_speed_table_is_all_numeric():
@@ -98,3 +112,93 @@ def test_every_study_country_has_an_urban_default():
     """
     for code in ["NL:urban", "BE:urban", "PL:urban", "IT:urban"]:
         assert parse_maxspeed(code) == 50.0, f"{code} did not parse"
+
+
+# --- merged-segment tag resolution must not depend on order -----------------
+#
+# 3,982 Rotterdam segments and 5,826 Genova segments carry list-valued tags,
+# every one with more than one distinct value. Reading element [0] made the
+# result depend on the order Overpass replied in: refetching Genova's graph
+# returned 5,131 of 5,826 lists reordered with identical contents, silently
+# reclassifying 1,265 Genova and 552 Rotterdam segments between runs.
+
+
+def test_highway_class_takes_the_least_favourable_component():
+    """A part-residential, part-pedestrian segment exposes the child to the road."""
+    from routes_ssr.segment_index import HIGHWAY_SCORE, _governing
+
+    rank = lambda p: HIGHWAY_SCORE.get(str(p))
+    assert _governing(["residential", "pedestrian"], rank) == "residential"
+    assert _governing(["pedestrian", "residential"], rank) == "residential"
+    assert _governing("footway", rank) == "footway"
+
+
+def test_governing_is_order_independent_for_every_permutation():
+    import itertools
+
+    from routes_ssr.segment_index import HIGHWAY_SCORE, _governing
+
+    rank = lambda p: HIGHWAY_SCORE.get(str(p))
+    tags = ["primary", "residential", "footway"]
+    answers = {_governing(list(p), rank) for p in itertools.permutations(tags)}
+    assert len(answers) == 1, answers
+    assert answers.pop() == "primary"
+
+
+def test_governing_handles_unscored_and_empty_components():
+    from routes_ssr.segment_index import HIGHWAY_SCORE, _governing
+
+    rank = lambda p: HIGHWAY_SCORE.get(str(p))
+    assert _governing([], rank) is None
+    assert _governing(None, rank) is None
+    # an unrecognised class must not be silently preferred over a known one
+    assert _governing(["not_a_highway", "primary"], rank) == "primary"
+
+
+def test_presence_tags_are_detected_on_any_component():
+    from routes_ssr.segment_index import _has_tag
+
+    s = pd.Series([["no", "yes"], ["yes", "no"], ["no", "no"], None])
+    got = _has_tag(s)
+    assert got.iloc[0] == got.iloc[1] == 1.0, "order must not matter"
+    assert got.iloc[2] == 0.0
+    assert np.isnan(got.iloc[3]), "untagged stays unknown, not absent"
+
+
+def test_tied_scores_resolve_deterministically():
+    """The bug inside the first version of the fix.
+
+    footway, steps, pedestrian and living_street all score 1.00, so ranking on
+    score alone left min() returning whichever tied component happened to come
+    first. That is the ordering dependence the function exists to remove, and
+    it was not cosmetic: `footway` triggers the implicit 20 km/h fill in
+    build_segment_indicators and `steps` does not, so a ['footway','steps']
+    segment changed its speed score with the order Overpass replied in.
+    """
+    from routes_ssr.segment_index import HIGHWAY_SCORE, _governing
+
+    rank = lambda p: HIGHWAY_SCORE.get(str(p))
+    assert HIGHWAY_SCORE["footway"] == HIGHWAY_SCORE["steps"], "precondition: tied"
+    assert _governing(["footway", "steps"], rank) == _governing(["steps", "footway"], rank)
+
+
+def test_implicit_speed_fill_is_order_independent():
+    """End to end: the tie must not move s_speed."""
+    import geopandas as gpd
+    from shapely.geometry import LineString
+
+    from routes_ssr.segment_index import build_segment_indicators
+
+    def frame(tags):
+        return gpd.GeoDataFrame(
+            {"highway": [list(tags)], "maxspeed": [None]},
+            geometry=[LineString([(0, 0), (100, 0)])], crs="EPSG:28992",
+        )
+
+    a = build_segment_indicators(frame(["footway", "steps"]))
+    b = build_segment_indicators(frame(["steps", "footway"]))
+    assert a["highway_class"].iloc[0] == b["highway_class"].iloc[0]
+    assert (
+        a["maxspeed_kmh"].iloc[0] == b["maxspeed_kmh"].iloc[0]
+        or (np.isnan(a["maxspeed_kmh"].iloc[0]) and np.isnan(b["maxspeed_kmh"].iloc[0]))
+    )

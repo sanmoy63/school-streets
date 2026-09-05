@@ -177,16 +177,78 @@ IMPLICIT_SPEED = {
 }
 
 
-def _first(value):
-    """OSM tags arrive as scalars or lists when a segment merges several ways."""
+def _components(value) -> list:
+    """The component tag values of a segment, as a list."""
+    if value is None:
+        return []
     if isinstance(value, (list, tuple)):
-        return value[0] if value else None
-    return value
+        return [v for v in value if v is not None]
+    return [value]
+
+
+def _governing(value, favourability):
+    """The least favourable component of a merged segment.
+
+    OSM tags arrive as scalars, or as lists when simplification merges several
+    ways into one segment -- 3,982 of Rotterdam's segments and 5,826 of
+    Genova's, every one of them carrying more than one distinct value.
+
+    This used to read ``value[0]``, and Overpass does not fix the order ways
+    come back in: refetching Genova's graph returned 5,131 of 5,826 lists
+    reordered with identical contents. That silently reclassified 1,265 Genova
+    segments and 552 Rotterdam segments from one run to the next, on individual
+    edges by as much as the full 0..1 range of the score.
+
+    The rule is that the least favourable component governs, because a child
+    walks the whole segment: a stretch that is part residential and part
+    pedestrian exposes them to the residential part. It is the same principle
+    as the stair floor in terrain.py, and it is a modelling choice rather than
+    a bug fix -- what is not a choice is that the answer must not depend on the
+    order Overpass replied in.
+
+    ``favourability`` maps a component to a sortable value, higher being better
+    for a walking child.
+    """
+    parts = _components(value)
+    if not parts:
+        return None
+    ranked = [(favourability(p), p) for p in parts]
+    ranked = [(f, p) for f, p in ranked if f is not None and f == f]
+    if not ranked:
+        return sorted(parts, key=str)[0]
+    # Tie-break on the value itself. Scores are not unique -- footway, steps,
+    # pedestrian and living_street all score 1.00 -- so ranking on score alone
+    # leaves min() picking whichever tied component came first, which is the
+    # ordering dependence this function exists to remove. It matters
+    # downstream: `footway` triggers the implicit 20 km/h fill and `steps` does
+    # not, so a ['footway','steps'] segment silently changed its speed score
+    # with the order Overpass replied in.
+    return min(ranked, key=lambda t: (t[0], str(t[1])))[1]
+
+
+def _first(value):
+    """Deprecated: order-dependent. Retained only so that a caller that has no
+    favourability ordering still behaves deterministically."""
+    parts = _components(value)
+    return sorted(parts, key=str)[0] if parts else None
 
 
 def parse_maxspeed(value) -> float:
-    """Parse an OSM ``maxspeed`` tag to km/h, or NaN if it cannot be read."""
-    value = _first(value)
+    """Parse an OSM ``maxspeed`` tag to km/h, or NaN if it cannot be read.
+
+    A merged segment carries several limits (714 segments in Rotterdam, 40 in
+    Genova). The highest governs: it is the fastest traffic the child is
+    exposed to anywhere along the segment, and it does not depend on tag order.
+    """
+    parts = _components(value)
+    if len(parts) > 1:
+        speeds = [_parse_one_maxspeed(v) for v in parts]
+        speeds = [x for x in speeds if x == x]
+        return max(speeds) if speeds else np.nan
+    return _parse_one_maxspeed(parts[0] if parts else None)
+
+
+def _parse_one_maxspeed(value) -> float:
     if value is None or (isinstance(value, float) and np.isnan(value)):
         return np.nan
     text = str(value).strip()
@@ -224,10 +286,16 @@ def score_speed(kmh: float, hostile_kmh: float) -> float:
 def _has_tag(series: pd.Series, truthy: set[str] | None = None) -> pd.Series:
     """Binary presence score for a tag, preserving NaN for untagged rows."""
     truthy = truthy or {"yes", "true", "1"}
-    vals = series.map(_first)
+    # Presence is a detection: if any component way carries the tag, the
+    # feature is present on the segment. Order-independent, unlike reading the
+    # first component.
     out = pd.Series(np.nan, index=series.index, dtype=float)
-    known = vals.notna()
-    out[known] = vals[known].astype(str).str.lower().isin(truthy).astype(float)
+    for i, v in series.items():
+        parts = _components(v)
+        parts = [p for p in parts if p is not None and p == p]
+        if not parts:
+            continue
+        out[i] = float(any(str(p).lower() in truthy for p in parts))
     return out
 
 
@@ -297,7 +365,9 @@ def build_segment_indicators(
         parse_maxspeed
     )
 
-    highway = df.get("highway", pd.Series(index=df.index, dtype=object)).map(_first)
+    highway = df.get("highway", pd.Series(index=df.index, dtype=object)).map(
+        lambda v: _governing(v, lambda p: HIGHWAY_SCORE.get(str(p)))
+    )
     df["highway_class"] = highway
     s_highway = highway.astype(str).map(HIGHWAY_SCORE)
 
@@ -352,7 +422,9 @@ def build_segment_indicators(
     # only survives on ways that are themselves footways, so an index requiring
     # it silently narrows to footways, which all score alike. That produced a
     # near-constant index in the first run of this pipeline.
-    sidewalk = df.get("sidewalk", pd.Series(index=df.index, dtype=object)).map(_first)
+    sidewalk = df.get("sidewalk", pd.Series(index=df.index, dtype=object)).map(
+        lambda v: _governing(v, lambda p: SIDEWALK_SCORE.get(str(p).lower()))
+    )
     s_tagged = sidewalk.astype(str).str.lower().map(SIDEWALK_SCORE)
 
     df["highway_class"] = highway  # sidewalks.py needs this present
