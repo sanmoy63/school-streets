@@ -817,28 +817,69 @@ surface-model noise on real terrain instead of partly measuring a data gap.
 
 | | flat model | slope-aware (published) | slope-aware (revised) |
 |---|---|---|---|
-| Rotterdam | 0.507 | 0.462 | 0.459 |
+| Rotterdam | 0.507 | 0.462 | 0.458 |
 | Genova | 0.482 | 0.305 | **0.296** |
 
 Across thresholds, revised against published:
 
 | | 5 min | 10 min | 15 min |
 |---|---|---|---|
-| Rotterdam | 0.445 (was 0.447) | 0.459 (was 0.462) | 0.478 (was 0.480) |
+| Rotterdam | 0.445 (was 0.447) | 0.458 (was 0.462) | 0.478 (was 0.480) |
 | Genova | 0.250 (was 0.257) | **0.296** (was 0.305) | 0.339 (was 0.350) |
-| **gap** | **0.196** (was 0.190) | **0.163** (was 0.157) | **0.139** (was 0.130) |
+| **gap** | **0.196** (was 0.190) | **0.162** (was 0.157) | **0.139** (was 0.130) |
 
-Rotterdam moves −0.003 at 10 minutes with a DEM that was already correct, so
-that is the drift in OSM and library versions since the original run. Genova
-moves −0.009 over the same interval: roughly one third drift, two thirds the DEM
-correction. **The gap widens at every threshold.** Genova is harder to walk than
-previously reported, not easier — the direction the defect implied, since a
-fifth of the city had been flattened.
+**The gap widens at every threshold.** Genova is harder to walk than previously
+reported, not easier, which is the direction the defect implied since a fifth of
+the city had been flattened.
+
+An earlier draft of this section attributed Genova's movement to the DEM
+correction and OSM drift in roughly a two-to-one split, using Rotterdam as the
+control. That decomposition was cleaner in the telling than the evidence
+supported, and it is withdrawn: at the time it was written both cities also
+carried the tag-ordering defect described below, so the control was itself
+unstable. What can be said is that the gap is wider on corrected, reproducible
+figures than on the published ones.
 
 Genova's disadvantage still *compounds at short range*: 0.250 at 5 minutes
 rising to 0.339 at 15, against Rotterdam's much flatter 0.445 / 0.459 / 0.478.
 The walk that matters most for a young child is the one terrain penalises
 hardest.
+
+### The same code gave three different answers
+
+Three runs of unchanged code reported 5,295, 6,396 and 3,280 stairways raised in
+Genova, and `reach_ratio` at ten minutes of 0.305, 0.296 and 0.310. The DEM, the
+node and edge counts, and the clamp count were identical across all of them.
+
+The cause was tag ordering. OSMnx is called with `simplify=True`, so a chain of
+OSM ways becomes one graph edge and its `highway` attribute becomes a list:
+5,826 of Genova's 101,904 edges, every one carrying more than one distinct
+value. The code read the first element. Overpass does not fix the order ways
+come back in, and refetching the same graph returned 5,131 of those 5,826 lists
+reordered with identical contents.
+
+The effect was not noise. Ordering is consistent within a response, so each run
+landed near one of two whole specifications: treat an edge as stairs if any
+component way is, giving 6,444 raised and reach 0.2959, or only if every
+component is, giving 3,202 and 0.3103. A 0.014 spread, wider than the 0.009 this
+note had attributed to the DEM correction, and none of it data.
+
+The same pattern governed `highway_class`, `maxspeed` and `sidewalk` in the
+segment index, silently reclassifying 1,265 Genova and 552 Rotterdam segments
+between runs. That matters more than the citywide means suggest, because
+`s_highway` is the only indicator surviving harmonisation and therefore carries
+the entire cross-city comparison.
+
+Both are now resolved by an explicit rule rather than by list order: **the least
+favourable component governs**, because a child walks the whole segment. A
+stretch that is part residential and part pedestrian exposes them to the
+residential part; an edge containing a flight of stairs contains a flight of
+stairs. It is a modelling choice, stated as one, and the alternative moves
+Genova's `reach_ratio` from 0.296 to 0.310. What is not a choice is that the
+answer must not depend on the order a server replied in.
+
+Every figure in this section comes from a single run of the corrected code, and
+reruns reproduce it exactly.
 
 ### The multiplier does not survive being recomputed
 
@@ -873,7 +914,7 @@ with 6.5× would preserve the defect. The gap is the stable statistic and carrie
 the same argument:
 
 > Routed on flat distance, the two cities sit 0.025 apart at ten minutes. Routed
-> on walking time over real terrain, they sit 0.163 apart. The flat assumption
+> on walking time over real terrain, they sit 0.162 apart. The flat assumption
 > was not producing a slightly optimistic Genova figure; it was concealing
 > almost the entire difference between the two cities.
 
