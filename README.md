@@ -26,8 +26,8 @@ The pair is chosen for contrast on the variable that turned out to matter most,
 and held roughly constant on the rest.
 
 **Rotterdam is flat** — −18 m to +33 m across the whole city, mean pedestrian
-gradient 0.044. **Genova is not** — sea level to over 400 m inside the built-up
-area, mean gradient 0.103, with 290 km of stairways making up 4.7% of its
+gradient 0.048. **Genova is not** — sea level to over 400 m inside the built-up
+area, mean gradient 0.113, with 290 km of stairways making up 4.7% of its
 walking network against Rotterdam's 0.9%.
 
 Both are EU port cities of comparable order of population, with mature
@@ -38,10 +38,13 @@ than to their national statistical systems.
 **That contrast is the whole point.** A walkability measure built and tested only
 on flat ground can look entirely sound and still be wrong everywhere else — and
 this pair demonstrated exactly that. Routing on flat distance put the two cities
-within 0.027 of each other. Slope-aware routing separates them by 0.157, a
-**5.8× difference**, and **12.6×** once weighted by residents. The flat
-assumption was not producing a slightly optimistic Genova figure; it was
-concealing almost the entire difference between the two cities.
+**0.025 apart** at ten minutes, and by fifteen minutes Genova scores *above*
+Rotterdam. Routing on walking time over real terrain separates them by
+**0.163**, in the same direction at every threshold. The flat assumption was not
+producing a slightly optimistic Genova figure; it was concealing almost the
+entire difference between the two cities.
+
+Terrain does not widen a known gap. It is what makes the gap exist at all.
 
 ## Where this is going ?
 
@@ -121,9 +124,15 @@ catchment by roughly a third in area.
 hiking function over a 30 m elevation model, rescaled so level ground returns
 the child pace, and the graph is directed — climbing to school is not the trip
 home. This is not a refinement: routing on flat distance made Genova look
-comparable to Rotterdam (0.481 against 0.508), while slope-aware routing gives
-0.305 against 0.462. **The gap between the two cities was understated 5.8×, and
-12.6× once weighted by residents** (method note §4e).
+comparable to Rotterdam (0.482 against 0.507), while slope-aware routing gives
+**0.296 against 0.459** — a gap of 0.163 where flat routing showed 0.025, and
+0.128 against 0.009 once weighted by residents (method note §4e).
+
+Earlier versions of this README quoted that as a "5.8×" and "12.6×"
+understatement. Both figures are withdrawn: they divide by a flat gap that is
+close to zero and changes sign between the ten- and fifteen-minute thresholds,
+so the same data yields 2.2×, 6.5× or −17× depending only on which threshold is
+read. The gap is the stable statistic and carries the same argument.
 
 **The composite index is designed around three domains** — traffic safety,
 walking infrastructure, environment — each scored on [0, 1] in the direction of
@@ -146,6 +155,16 @@ conditioning on it.
 **The index is not the finding.** A composite whose ranking is not robust to its
 own weights is not evidence. Weight sensitivity is **not yet run** — it is listed
 as open work in the method note, and no ranking claim is made in the meantime.
+
+**Across cities, the street-scale index currently supports no claim at all.**
+Harmonisation keeps only indicators both cities observe well enough to share,
+and nothing survives except `s_highway` — a lookup on the OSM road class, which
+scores every class identically in both cities. Decomposing the one difference
+that clears the identification test gives a within-class term of exactly zero:
+**100% of it is road-class mix**, not anything measured on the streets. That is
+reported in `outputs/tables/comparative_claims.csv` rather than presented as a
+result. The neighbourhood-scale findings are unaffected — they rest on the
+network and the elevation model, not on the sparse OSM indicators.
 
 ---
 
