@@ -128,12 +128,12 @@ def build_city(key: str) -> dict | None:
             "pop_reach_mean": _safe_mean(schools["pop_reach_ratio"]),
         },
         "takeaway": (
-            "In Rotterdam, tag completeness is high: 100% of candidate streets (560) are confirmed infrastructure priorities. "
-            "Sidewalks exist primarily as separate footway geometries (3,551 km of roads vs 0 km inline tags)."
+            "In Rotterdam, tag completeness is high: 100% of candidate streets (560) are confirmed infrastructure priorities."
             if key == "rotterdam"
             else
             "In Genova, 70% of candidate streets (1,679 of 2,406) are data-deficient candidates rather than confirmed failures, "
-            "due to missing speed limits (9.4% tagged) and sidewalk tags. Vertical topography drops walkable school reach to 0.305."
+            "because speed limits (9.4% tagged) and pavement information are missing. Routed with slope, walkable school "
+            "reach falls to 0.296; the reach figure in the table below is measured on flat distance."
         ),
     }
     log.info(
@@ -383,7 +383,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div class="legend-icon" style="background:#2563eb; opacity:0.6;"></div>
     <div>
      <b>10-minute Network Walkshed</b><br>
-     <span class="sub">Reachable catchment based on slope-adjusted walking pace (Tobler hiking function on Copernicus 30m DEM).</span>
+     <span class="sub">Reachable catchment on flat network distance at a child's walking pace; slope is not applied on this map.</span>
     </div>
    </div>
    <div style="margin-top: 10px;">
@@ -400,24 +400,24 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="card" style="display:flex; flex-direction:column; gap:10px;">
    <div class="card-title">Methodological Insights &amp; Audit Results</div>
    <div class="note warn">
-    <b>Pavements are unobservable in standard OSM tags.</b>
-    In Rotterdam, <code>sidewalk</code> appears on 0 of 68,464 road ways because sidewalks are drawn as separate footway geometries. In Genova, inline sidewalk tags are sparsely recorded. Absence of tags indicates mapping style, not absence of physical pavements.
+    <b>Pavements are not measured.</b>
+    An earlier version of this note said the <code>sidewalk</code> tag appears on 0 of Rotterdam's 68,464 road ways because Dutch mappers draw pavements as separate lines. That count was wrong: the step that downloads OpenStreetMap data never read the tag, in either city, so the 0 describes our pipeline rather than the map. Pavements are left out of the index rather than scored as missing, and the tag will be counted again once it is read.
    </div>
    <div class="note warn">
     <b>Traffic calming measures mapper density, not street calming.</b>
-    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova (a $28\times$ disparity from 3,806 vs 73 tags). These are detection rates, not prevalence rates.
+    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova (a 28-fold disparity from 3,806 vs 73 tags). These are detection rates, not prevalence rates.
    </div>
    <div class="note">
     <b>Topography penalizes access far beyond distance.</b>
-    Planar distance suggested Rotterdam and Genova had comparable school reach (0.508 vs 0.481). Factoring elevation over a 30m DEM (Tobler's hiking function) reveals a <b>5.8&times;</b> severance disparity (reach drops to 0.305 in Genova), expanding to <b>12.6&times;</b> when resident-weighted.
+    On flat distance the two cities' school reach is almost the same (about 0.51 for Rotterdam and 0.48 for Genova), and by fifteen minutes Genova scores higher. Routed with slope (Tobler's hiking function on a 30&nbsp;m DEM), Genova's ten-minute reach falls to 0.296 and the gap opens to about 0.16, or about 0.13 counted in residents, in the same direction at every threshold. An earlier version gave this as a 5.8-fold (12.6-fold resident-weighted) disparity with Genova at 0.305. Both are withdrawn: the ratios divide by a flat gap close to zero that changes sign between thresholds, and 0.305 was computed on an elevation model that left a fifth of the city at sea level.
    </div>
    <div class="note warn">
     <b>Withdrawn: the street-imagery audit.</b>
     An earlier version of this page reported that open street-level imagery covered 0% of sampled untagged streets (95% bound &le; 2.1% in Rotterdam, &le; 2.4% in Genova), and put this down to car-mounted cameras being unable to reach Genova's <em>creuze</em>, alleys and stairways. That result is withdrawn. The coverage check used one location per photo sequence rather than one per photo, so it could not find coverage even where photos exist, and the speed-sign search returned no signs at all, not even on trunk and primary roads, because the search itself had failed. Whether street-level imagery could fill the missing tags has not been tested.
    </div>
    <div class="note">
-    <b>Identified sets prevent false cross-city claims.</b>
-    Because missing speed and sidewalk data create an uncertainty interval width of &sim;0.35, inter-city differences smaller than this width cannot be distinguished from missing-data bias. Only 1 of 9 indicators (<code>highway_class</code>) survives cross-city harmonisation.
+    <b>Only one indicator can be compared across cities.</b>
+    Only 1 of 9 indicators (<code>highway_class</code>, the road type) is recorded in a comparable way in both cities. Any difference between the two cities' index therefore reflects the mix of road types each contains, not conditions measured on the streets, so the cross-city comparison supports no claim. An earlier version put this down to an uncertainty interval of about 0.35 around every score; that was misleading, since most Rotterdam streets carry no interval at all, and it is withdrawn.
    </div>
   </div>
 
@@ -620,9 +620,9 @@ function show(key){
     <tr><td class="k">Evaluated Schools</td><td class="v">${s.schools}</td></tr>
     <tr><td class="k">Street Segments Analyzed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
     <tr><td class="k">Total Deficient (Score &le; 0.20)</td><td class="v">${s.worst_n.toLocaleString()}</td></tr>
-    <tr><td class="k">Mean 10-min Reach Ratio</td><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
+    <tr><td class="k">Mean 10-min Reach (flat distance)</td><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
     <tr><td class="k">Median Reachable Residents</td><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : '&mdash;'}</td></tr>
-    <tr><td class="k">Population-Weighted Reach</td><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
+    <tr><td class="k">Population-Weighted Reach (with slope)</td><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
   `;
 
   setStreetFilter(currentFilter);
