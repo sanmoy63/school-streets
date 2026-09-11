@@ -259,5 +259,4 @@ segment_index:
 imagery:
   snap_distance_m: 25.0
   mapillary_api_base: "https://graph.mapillary.com"
-  kartaview_api_base: "https://api.kartaview.org/2.0"
 

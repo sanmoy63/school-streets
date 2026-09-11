@@ -6,14 +6,19 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import pytest
+import requests
 from shapely.geometry import LineString, Point
 
 from routes_ssr.imagery import (
+    ImageryUnavailable,
     audit_imagery_coverage,
+    fetch_mapillary_signs,
     infer_missing_speeds,
     match_signs_to_segments,
     parse_sign_speed,
 )
+
+BBOX = (4.40, 51.90, 4.50, 52.00)
 
 
 def test_parse_sign_speed():
@@ -134,4 +139,38 @@ def test_stratified_sample_segments():
     assert counts["residential"] == 10
     assert counts["tertiary"] == 10
     assert counts["primary"] == 3  # All available when less than n_per_class
+
+
+def test_fetch_mapillary_signs_without_token_raises(monkeypatch):
+    # An empty frame here read as "no signs on these streets", which is how an
+    # audit that never ran was published as a 0% result.
+    monkeypatch.delenv("MAPILLARY_CLIENT_TOKEN", raising=False)
+    with pytest.raises(ImageryUnavailable):
+        fetch_mapillary_signs(BBOX)
+
+
+def test_fetch_mapillary_signs_request_failure_raises_without_leaking_token(monkeypatch):
+    def fail(*args, **kwargs):
+        raise requests.ConnectionError(
+            "failed: https://graph.mapillary.com/map_features?access_token=SECRET"
+        )
+
+    monkeypatch.setattr(requests, "get", fail)
+    with pytest.raises(ImageryUnavailable) as info:
+        fetch_mapillary_signs(BBOX, client_token="SECRET")
+    assert "SECRET" not in str(info.value)
+    assert info.value.__cause__ is None
+
+
+def test_fetch_mapillary_signs_empty_result_is_a_real_empty(monkeypatch):
+    class Resp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"data": []}
+
+    monkeypatch.setattr(requests, "get", lambda *a, **k: Resp())
+    out = fetch_mapillary_signs(BBOX, client_token="token")
+    assert out.empty
 

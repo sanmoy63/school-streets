@@ -1,4 +1,4 @@
-"""Open street-level imagery integration (Mapillary API v4 & KartaView).
+"""Open street-level imagery integration (Mapillary API v4).
 
 Why this module exists
 ----------------------
@@ -7,12 +7,17 @@ tags (20.7% in Rotterdam, 90.6% in Genova) or presence-only layer verification
 for traffic calming and sidewalks.
 
 This module provides tools to:
-1. Query open street-level imagery platforms (Mapillary Graph API v4, KartaView)
-   for traffic sign detections (e.g. 30 km/h / 50 km/h speed limit signs).
+1. Query Mapillary Graph API v4 for traffic sign detections (e.g. 30 km/h /
+   50 km/h speed limit signs).
 2. Spatially match detected signs to street segment geometries to infer missing
    `maxspeed_kmh`.
-3. Audit imagery coverage across untagged segments to calculate layer
-   completeness metrics for `config/cities.yml`.
+3. Audit imagery coverage across segments, given photo locations.
+
+A fetch that cannot run raises `ImageryUnavailable` rather than returning an
+empty frame. An empty frame reads as "no signs on these streets", and that is
+how an audit that never ran came to be published as 0% coverage. KartaView is
+no longer queried: its sequence endpoint gives one location per photo sequence,
+not per photo, so it cannot show whether a given street was photographed.
 """
 
 from __future__ import annotations
@@ -67,6 +72,10 @@ def parse_sign_speed(value_key: str) -> float:
     return np.nan
 
 
+class ImageryUnavailable(RuntimeError):
+    """An imagery query could not run, so its result would say nothing about the streets."""
+
+
 def fetch_mapillary_signs(
     bbox: tuple[float, float, float, float],
     client_token: str | None = None,
@@ -75,34 +84,48 @@ def fetch_mapillary_signs(
 
     Requires a valid Mapillary client token (can be supplied or read from `MAPILLARY_CLIENT_TOKEN` env var).
     Returns a GeoDataFrame in EPSG:4326 carrying `value`, `speed_kmh`, and `geometry`.
+
+    Raises `ImageryUnavailable` when there is no token or the request fails. An
+    empty frame is returned only when the query ran and found no signs.
     """
     token = client_token or os.environ.get("MAPILLARY_CLIENT_TOKEN")
     if not token:
-        log.warning("No Mapillary client token supplied or found in MAPILLARY_CLIENT_TOKEN env var.")
-        return gpd.GeoDataFrame(columns=["value", "speed_kmh", "geometry"], crs="EPSG:4326")
+        raise ImageryUnavailable(
+            "no Mapillary client token supplied or found in MAPILLARY_CLIENT_TOKEN"
+        )
 
     base_url = params("imagery")["mapillary_api_base"]
     url = f"{base_url}/map_features"
     minx, miny, maxx, maxy = bbox
     bbox_str = f"{minx},{miny},{maxx},{maxy}"
 
+    limit = 1000
     params_req = {
         "access_token": token,
         "fields": "id,value,geometry",
         "bbox": bbox_str,
         "layers": "traffic_signs",
-        "limit": 1000,
+        "limit": limit,
     }
 
     try:
         resp = requests.get(url, params=params_req, timeout=30)
         resp.raise_for_status()
         data = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("Mapillary API request failed (%s): %s", type(exc).__name__, exc)
-        return gpd.GeoDataFrame(columns=["value", "speed_kmh", "geometry"], crs="EPSG:4326")
+    except (requests.RequestException, ValueError) as exc:
+        # The exception text can carry the request URL, token included, so only
+        # its type and HTTP status are passed on, and the chain is cut.
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        raise ImageryUnavailable(
+            f"Mapillary API request failed ({type(exc).__name__}, HTTP status {status})"
+        ) from None
 
     features = data.get("data", [])
+    if len(features) >= limit:
+        log.warning(
+            "Mapillary returned %d features, the page limit: results are truncated "
+            "and missing signs cannot be read as absent.", len(features),
+        )
     if not features:
         return gpd.GeoDataFrame(columns=["value", "speed_kmh", "geometry"], crs="EPSG:4326")
 
@@ -132,52 +155,6 @@ def fetch_mapillary_signs(
 
     gdf = gpd.GeoDataFrame(rows, crs="EPSG:4326")
     log.info("Fetched %d traffic sign features from Mapillary API", len(gdf))
-    return gdf
-
-
-def fetch_kartaview_coverage(
-    bbox: tuple[float, float, float, float]
-) -> gpd.GeoDataFrame:
-    """Query KartaView API for street-level sequence coverage within WGS84 bbox (min_x, min_y, max_x, max_y).
-
-    No API key required. Returns a GeoDataFrame in EPSG:4326 with photo sequence points.
-    """
-    base_url = params("imagery")["kartaview_api_base"]
-    url = f"{base_url}/sequence/"
-    minx, miny, maxx, maxy = bbox
-
-    params_req = {
-        "tLeft": f"{maxy},{minx}",
-        "bRight": f"{miny},{maxx}",
-    }
-
-    try:
-        resp = requests.get(url, params=params_req, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-    except Exception as exc:  # noqa: BLE001
-        log.warning("KartaView API request failed (%s): %s", type(exc).__name__, exc)
-        return gpd.GeoDataFrame(columns=["photo_id", "geometry"], crs="EPSG:4326")
-
-    sequences = data.get("result", {}).get("data", [])
-    if not sequences:
-        return gpd.GeoDataFrame(columns=["photo_id", "geometry"], crs="EPSG:4326")
-
-    rows = []
-    for s in sequences:
-        lat = float(s.get("currentLat", 0.0))
-        lng = float(s.get("currentLng", 0.0))
-        if lat and lng and abs(lat) <= 90 and abs(lng) <= 180:
-            rows.append({
-                "photo_id": s.get("id"),
-                "geometry": gpd.points_from_xy([lng], [lat])[0],
-            })
-
-    if not rows:
-        return gpd.GeoDataFrame(columns=["photo_id", "geometry"], crs="EPSG:4326")
-
-    gdf = gpd.GeoDataFrame(rows, crs="EPSG:4326")
-    log.info("Fetched %d photo sequence points from KartaView API", len(gdf))
     return gdf
 
 

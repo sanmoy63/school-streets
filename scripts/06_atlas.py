@@ -135,14 +135,6 @@ def build_city(key: str) -> dict | None:
             "In Genova, 70% of candidate streets (1,679 of 2,406) are data-deficient candidates rather than confirmed failures, "
             "due to missing speed limits (9.4% tagged) and sidewalk tags. Vertical topography drops walkable school reach to 0.305."
         ),
-        "audit_insight": (
-            "Rotterdam imagery audit shows 0% open coverage on sampled untagged links (Wilson 95% bound ≤ 2.1%). "
-            "Dense municipal cycleway and separate footway mapping prevents conflation errors."
-            if key == "rotterdam"
-            else
-            "Genova imagery audit shows 0% open coverage on sampled untagged links (Wilson 95% bound ≤ 2.4%). "
-            "Car cameras cannot access historic pedestrian creuse, alleys, and stairways where children actually walk."
-        ),
     }
     log.info(
         "%s: %d schools, %d worst streets (%d confirmed, %d candidate), reach %.3f",
@@ -354,7 +346,6 @@ _TEMPLATE = r"""<!DOCTYPE html>
   <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);">
    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</div>
    <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">&mdash;</p>
-   <div style="font-size:11px; line-height:1.45; color:var(--slate-600); margin-top:8px; border-top:1px dashed rgba(74,20,134,0.2); padding-top:6px;" id="city-audit-body">&mdash;</div>
   </div>
 
   <div class="card">
@@ -420,9 +411,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <b>Topography penalizes access far beyond distance.</b>
     Planar distance suggested Rotterdam and Genova had comparable school reach (0.508 vs 0.481). Factoring elevation over a 30m DEM (Tobler's hiking function) reveals a <b>5.8&times;</b> severance disparity (reach drops to 0.305 in Genova), expanding to <b>12.6&times;</b> when resident-weighted.
    </div>
-   <div class="note">
-    <b>Street-level imagery cannot fill the gaps (Audit Findings).</b>
-    A stratified audit of open imagery (KartaView) across road classes yielded 0% coverage on untagged networks (Wilson 95% bound &le; 2.4%). Car-mounted cameras cannot navigate Genova's historic pedestrian <em>creuse</em>, alleys, and stairways—imputing attributes from imagery would create severe car-centric selection bias.
+   <div class="note warn">
+    <b>Withdrawn: the street-imagery audit.</b>
+    An earlier version of this page reported that open street-level imagery covered 0% of sampled untagged streets (95% bound &le; 2.1% in Rotterdam, &le; 2.4% in Genova), and put this down to car-mounted cameras being unable to reach Genova's <em>creuze</em>, alleys and stairways. That result is withdrawn. The coverage check used one location per photo sequence rather than one per photo, so it could not find coverage even where photos exist, and the speed-sign search returned no signs at all, not even on trunk and primary roads, because the search itself had failed. Whether street-level imagery could fill the missing tags has not been tested.
    </div>
    <div class="note">
     <b>Identified sets prevent false cross-city claims.</b>
@@ -624,7 +615,6 @@ function show(key){
 
   document.getElementById('city-takeaway-title').innerHTML = c.name.split(',')[0] + ' &middot; Empirical Synthesis';
   document.getElementById('city-takeaway-body').textContent = c.takeaway || '';
-  document.getElementById('city-audit-body').innerHTML = '<b>📷 Street Imagery Audit:</b> ' + (c.audit_insight || '');
 
   document.getElementById('stats-detail').innerHTML = `
     <tr><td class="k">Evaluated Schools</td><td class="v">${s.schools}</td></tr>

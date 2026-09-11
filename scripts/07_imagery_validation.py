@@ -1,12 +1,18 @@
-"""Audit and validate missing segment attributes using open street-level imagery.
+"""Infer missing speed limits from Mapillary traffic-sign detections.
 
 Usage
 -----
-    python scripts/07_imagery_validation.py rotterdam
-    python scripts/07_imagery_validation.py rotterdam --sample 100 --token YOUR_MAPILLARY_TOKEN
+    python scripts/07_imagery_validation.py rotterdam --token YOUR_MAPILLARY_TOKEN
+    python scripts/07_imagery_validation.py rotterdam      # with MAPILLARY_CLIENT_TOKEN set
 
 Writes:
     outputs/tables/<city>_imagery_audit.csv
+
+The script stops if Mapillary cannot be queried. An earlier version carried on
+with an empty result and wrote 0% as though it had been measured, and it also
+reported imagery "coverage" from KartaView sequence records -- one location per
+photo sequence, not per photo -- which cannot show whether a street was
+photographed. Both results were withdrawn, and coverage is no longer reported.
 """
 
 from __future__ import annotations
@@ -69,25 +75,19 @@ def main(city_key: str, sample_per_class: int = 20, client_token: str | None = N
     sampled_wgs84 = sampled.to_crs(4326)
     minx, miny, maxx, maxy = sampled_wgs84.total_bounds
 
-    # 1. Fetch traffic sign detections via Mapillary if token available
-    signs_gdf = imagery.fetch_mapillary_signs((minx, miny, maxx, maxy), client_token=client_token)
+    # Fetch traffic sign detections. No result is written unless the query ran.
+    try:
+        signs_gdf = imagery.fetch_mapillary_signs((minx, miny, maxx, maxy), client_token=client_token)
+    except imagery.ImageryUnavailable as exc:
+        raise SystemExit(f"Imagery audit not run, nothing written: {exc}") from None
 
-    # 2. Fetch photo point coverage via KartaView as open fallback
-    kv_photos = imagery.fetch_kartaview_coverage((minx, miny, maxx, maxy))
-
-    # 3. Match signs to sampled segments
+    # Match signs to sampled segments
     if not signs_gdf.empty:
         matched = imagery.infer_missing_speeds(sampled, signs_gdf)
     else:
         matched = sampled.copy()
         matched["inferred_maxspeed_kmh"] = np.nan
 
-    # 4. Compute overall coverage audit
-    kv_audit = imagery.audit_imagery_coverage(sampled, kv_photos) if not kv_photos.empty else {
-        "coverage_share": 0.0, "covered_segments": 0, "coverage_ci_lo": 0.0, "coverage_ci_hi": 0.0
-    }
-
-    # 5. Compute per-stratum breakdown
     rows = []
     # Overall row
     n_inferred = int(matched["inferred_maxspeed_kmh"].notna().sum())
@@ -97,10 +97,6 @@ def main(city_key: str, sample_per_class: int = 20, client_token: str | None = N
         "city": city.key,
         "stratum": "ALL_STRATIFIED",
         "n_sampled": len(sampled),
-        "n_covered": kv_audit["covered_segments"],
-        "coverage_rate": kv_audit["coverage_share"],
-        "coverage_ci_lo": kv_audit.get("coverage_ci_lo", 0.0),
-        "coverage_ci_hi": kv_audit.get("coverage_ci_hi", 0.0),
         "detected_signs": len(signs_gdf),
         "inferred_speed_n": n_inferred,
         "inferred_speed_rate": p_inf,
@@ -111,9 +107,6 @@ def main(city_key: str, sample_per_class: int = 20, client_token: str | None = N
     # Per-class strata
     for h_class, grp in sampled.groupby("highway_class", observed=True):
         grp_matched = matched.loc[grp.index]
-        grp_audit = imagery.audit_imagery_coverage(grp, kv_photos) if not kv_photos.empty else {
-            "coverage_share": 0.0, "covered_segments": 0, "coverage_ci_lo": 0.0, "coverage_ci_hi": 0.0
-        }
         g_inf = int(grp_matched["inferred_maxspeed_kmh"].notna().sum())
         p_g, lo_g, hi_g = imagery.wilson_score_interval(g_inf, len(grp))
 
@@ -121,10 +114,6 @@ def main(city_key: str, sample_per_class: int = 20, client_token: str | None = N
             "city": city.key,
             "stratum": h_class,
             "n_sampled": len(grp),
-            "n_covered": grp_audit["covered_segments"],
-            "coverage_rate": grp_audit["coverage_share"],
-            "coverage_ci_lo": grp_audit.get("coverage_ci_lo", 0.0),
-            "coverage_ci_hi": grp_audit.get("coverage_ci_hi", 0.0),
             "detected_signs": len(signs_gdf),
             "inferred_speed_n": g_inf,
             "inferred_speed_rate": p_g,
