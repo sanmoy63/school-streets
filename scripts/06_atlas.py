@@ -188,7 +188,7 @@ def _render(cities: dict) -> str:
     first = next(iter(cities))
     buttons = "".join(
         f'<button type="button" data-city="{k}" aria-pressed="{"true" if k == first else "false"}"'
-        f'{" class=on" if k == first else ""}>{v["name"].split(",")[0]}</button>'
+        f'{" class=on" if k == first else ""}>{k.replace("_", " ").title()}</button>'
         for k, v in cities.items()
     )
     return _TEMPLATE.replace("__DATA__", data).replace("__BUTTONS__", buttons).replace("__FIRST__", first)
@@ -199,8 +199,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>School-Street Readiness Atlas | Comparative Multi-City Study</title>
-<meta name="description" content="Open urban atlas evaluating school-street intervention readiness, spatial data observability, and topological severance in Rotterdam and Genoa.">
+<title>How far can a child walk to school? | Rotterdam and Genova</title>
+<meta name="description" content="How much of the neighbourhood a child can reach on foot, and how dangerous the traffic is, around every primary school and kindergarten in Rotterdam and Genova.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -339,6 +339,18 @@ _TEMPLATE = r"""<!DOCTYPE html>
  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
  @media (forced-colors: active) { .filter-chip.active, .segmented-control button.on { outline: 2px solid CanvasText; } }
 
+ .findings { border-color: rgba(74,20,134,0.3); }
+ .findings-list, .corrections-list { padding-left: 18px; display: flex; flex-direction: column; gap: 8px; line-height: 1.5; }
+ .findings-list { font-size: 13px; color: var(--slate-800); }
+ .corrections-list { font-size: 12px; color: var(--slate-600); }
+ .findings-list b, .corrections-list b { color: var(--slate-900); }
+ .map-key { position: absolute; left: 12px; bottom: 24px; z-index: 1000; margin-top: 0; max-width: 270px;
+   background: rgba(255,255,255,0.95); border: 1px solid rgba(0,0,0,0.1); border-radius: 10px; padding: 6px 10px;
+   box-shadow: 0 4px 14px rgba(0,0,0,0.08); font-size: 12px; }
+ .map-key summary { font-size: 12px; }
+ .map-key ul { list-style: none; display: flex; flex-direction: column; gap: 5px; margin: 4px 0 2px; }
+ .map-key li { display: flex; align-items: center; gap: 8px; line-height: 1.3; }
+
  @media(max-width: 860px) {
    #wrap { flex-direction: column; }
    #side { width: 100%; min-width: 0; height: 48%; border-right: none; border-bottom: 1px solid var(--slate-200); }
@@ -352,12 +364,32 @@ _TEMPLATE = r"""<!DOCTYPE html>
  <a class="skip-link" href="#map-container">Skip to the map</a>
  <main id="side">
   <div>
-   <div class="badge">Open Urban Atlas &middot; Spatial Data Observability</div>
-   <h1 style="margin-top: 8px;">School-Street Readiness Atlas</h1>
+   <div class="badge">School streets &middot; Rotterdam and Genova</div>
+   <h1 style="margin-top: 8px;">How far can a child walk to school?</h1>
    <p class="sub" style="margin-top: 6px;">
-    Evaluating school access in contrasting topographies: flat <b>Rotterdam</b> versus vertical <b>Genova</b>.
-    Comparing local priorities against data-observability bounds to prevent missing-data bias.
+    Around every primary school and kindergarten in two cities, flat <b>Rotterdam</b> and
+    hilly <b>Genova</b>, we used open map data to measure two things: how much of the
+    neighbourhood a child can actually reach on foot in ten minutes, and how dangerous
+    the traffic on each nearby street is likely to be.
    </p>
+  </div>
+
+  <div class="card findings">
+   <h2 class="card-title">What we found</h2>
+   <ol class="findings-list">
+    <li><b>Hills, not distance, make school harder to reach in Genova.</b> If every street
+     were flat, the two cities would look almost the same: a child could reach about half of
+     the street junctions within a ten-minute walk as the crow flies (about 0.51 in Rotterdam,
+     0.48 in Genova). Counting slopes and stairs, Genova falls to about 0.30, while Rotterdam
+     only drops to about 0.46.</li>
+    <li><b>We cannot say which city's streets are safer.</b> Only the type of road is recorded
+     the same way in both cities. Speed limits, for example, are recorded on about 80% of
+     Rotterdam's roads but only about 10% of Genova's, so comparing them would compare the
+     mapping, not the streets.</li>
+    <li><b>Most streets flagged in Genova cannot be judged yet.</b> About 7 in 10 are flagged
+     only because information such as speed limits is missing, so they need checking on the
+     ground before any work is planned. In Rotterdam, every flagged street needs work.</li>
+   </ol>
   </div>
 
   <div class="segmented-control" id="city-buttons" role="group" aria-label="Choose a city">
@@ -365,55 +397,66 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
 
   <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);" aria-live="polite">
-   <h2 style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</h2>
+   <h2 style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City at a glance</h2>
    <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">&mdash;</p>
   </div>
 
   <div class="card">
-   <h2 class="card-title">City Network Overview</h2>
+   <h2 class="card-title">Flagged streets and reach</h2>
    <div class="grid-stats">
     <div class="stat-box confirmed">
      <div class="stat-val" id="stat-confirmed">&mdash;</div>
-     <div class="stat-lbl">Confirmed Priorities<br><span class="fine" style="color:#991b1b;">Upper bound &le; 0.20</span></div>
+     <div class="stat-lbl">Need work<br><span class="fine" style="color:#991b1b;">0.20 or below even in the best case</span></div>
     </div>
     <div class="stat-box candidate">
      <div class="stat-val" id="stat-candidate">&mdash;</div>
-     <div class="stat-lbl">Data-Deficient Candidates<br><span class="fine" style="color:#92400e;">Missing tags (audit needed)</span></div>
+     <div class="stat-lbl">Cannot judge yet<br><span class="fine" style="color:#92400e;">flagged because data is missing</span></div>
     </div>
    </div>
    <table class="stats-table" id="stats-detail"></table>
   </div>
 
   <div class="card">
-   <h2 class="card-title">Reading the Map</h2>
+   <h2 class="card-title">How to read the map</h2>
+   <p class="sub" style="margin-bottom: 10px;">
+    Every street near a school gets a <b>traffic-danger score from 0 to 1, where higher is
+    safer</b>. A quiet cul-de-sac with slow traffic scores near 1; a fast multi-lane road scores
+    near 0. The map draws the streets that score <b>0.20 or below</b>.
+   </p>
    <div class="legend-item">
     <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#7f1d1d" stroke-width="3"/></svg>
     <div>
-     <b style="color:#7f1d1d;">Confirmed Intervention Priorities</b> <span class="fine">(solid line)</span><br>
-     <span class="sub">ssr_index_hi &le; 0.20 &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
+     <b style="color:#7f1d1d;">Needs work</b> <span class="fine">(solid line)</span><br>
+     <span class="sub">Scores 0.20 or below even if every missing piece of data turned out to be favourable.</span>
     </div>
    </div>
    <div class="legend-item">
     <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#c2410c" stroke-width="2.5" stroke-dasharray="6 4"/></svg>
     <div>
-     <b style="color:#c2410c;">Data-Deficient Candidates</b> <span class="fine">(dashed line)</span><br>
-     <span class="sub">index &le; 0.20 but hi &gt; 0.20 &mdash; flagged by default penalties; target for audit, not civil works.</span>
+     <b style="color:#c2410c;">Cannot judge yet</b> <span class="fine">(dashed line)</span><br>
+     <span class="sub">Scores 0.20 or below on what is recorded, but favourable values for the missing data would clear it. It needs a survey, not construction.</span>
     </div>
    </div>
    <div class="legend-item">
     <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><rect x="1" y="1" width="26" height="12" rx="2" fill="#1d4ed8" fill-opacity="0.15" stroke="#1d4ed8"/></svg>
     <div>
-     <b>10-minute Network Walkshed</b><br>
-     <span class="sub">Reachable catchment on flat network distance at a child's walking pace; slope is not applied on this map.</span>
+     <b>10-minute walk</b><br>
+     <span class="sub">The area a child can reach along streets in ten minutes, measured on flat distance: slope is not applied on this map.</span>
+    </div>
+   </div>
+   <div class="legend-item">
+    <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><circle cx="8" cy="7" r="5.5" fill="#6a51a3" stroke="#0f172a"/><circle cx="21" cy="7" r="3" fill="#bcbddc" stroke="#0f172a"/></svg>
+    <div>
+     <b>Schools</b><br>
+     <span class="sub">Colour shows how much of the nearby street network a child can reach in ten minutes; darker means less. Bigger circles have more residents within that walk.</span>
     </div>
    </div>
    <div style="margin-top: 10px;">
-    <div style="font-size:11px; font-weight:700; color:var(--slate-600);">School Reach Ratio (Network Severance)</div>
+    <div style="font-size:11px; font-weight:700; color:var(--slate-600);">School colour: share of nearby street junctions reachable in 10 minutes</div>
     <div class="legend-bar"></div>
     <div class="legend-ends">
-     <span>0.0 Severed</span>
-     <span>0.5 Baseline</span>
-     <span>1.0 Full Reach</span>
+     <span>0 = almost none</span>
+     <span>1 = all of them</span>
     </div>
    </div>
   </div>
@@ -432,40 +475,80 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
 
   <div class="card" style="display:flex; flex-direction:column; gap:10px;">
-   <h2 class="card-title">Methodological Insights &amp; Audit Results</h2>
-   <div class="note warn">
-    <b>Pavements are not measured.</b>
-    An earlier version of this note said the <code>sidewalk</code> tag appears on 0 of Rotterdam's 68,464 road ways because Dutch mappers draw pavements as separate lines. That count was wrong: the step that downloads OpenStreetMap data never read the tag, in either city, so the 0 describes our pipeline rather than the map. Pavements are left out of the index rather than scored as missing, and the tag will be counted again once it is read.
-   </div>
-   <div class="note warn">
-    <b>Traffic calming measures mapper density, not street calming.</b>
-    Calming features exist beside 17.2% of Rotterdam segments vs 0.62% in Genova (a 28-fold disparity from 3,806 vs 73 tags). These are detection rates, not prevalence rates.
+   <h2 class="card-title">Details and limits</h2>
+   <div class="note">
+    <b>What was measured.</b>
+    We take the walking network from OpenStreetMap, find every primary school and
+    kindergarten, and work outwards from each one at 3.6 km/h. That is a child's pace walking
+    with an adult, not the 4.8 km/h usually assumed for grown-ups.
    </div>
    <div class="note">
-    <b>Topography penalizes access far beyond distance.</b>
-    On flat distance the two cities' school reach is almost the same (about 0.51 for Rotterdam and 0.48 for Genova), and by fifteen minutes Genova scores higher. Routed with slope (Tobler's hiking function on a 30&nbsp;m DEM), Genova's ten-minute reach falls to 0.296 and the gap opens to about 0.16, or about 0.13 counted in residents, in the same direction at every threshold. An earlier version gave this as a 5.8-fold (12.6-fold resident-weighted) disparity with Genova at 0.305. Both are withdrawn: the ratios divide by a flat gap close to zero that changes sign between thresholds, and 0.305 was computed on an elevation model that left a fifth of the city at sea level.
+    <b>Why hills matter so much.</b>
+    Walking time on each street comes from its gradient on a 30&nbsp;m elevation model, and
+    stairways always count as steep. On flat distance the two cities' ten-minute reach is about
+    0.51 and 0.48, and by fifteen minutes Genova is slightly ahead. With slope, Genova's
+    ten-minute reach falls to 0.296 and the gap opens to about 0.16, or about 0.13 counted in
+    residents, in the same direction at every time limit.
    </div>
    <div class="note warn">
-    <b>Withdrawn: the street-imagery audit.</b>
-    An earlier version of this page reported that open street-level imagery covered 0% of sampled untagged streets (95% bound &le; 2.1% in Rotterdam, &le; 2.4% in Genova), and put this down to car-mounted cameras being unable to reach Genova's <em>creuze</em>, alleys and stairways. That result is withdrawn. The coverage check used one location per photo sequence rather than one per photo, so it could not find coverage even where photos exist, and the speed-sign search returned no signs at all, not even on trunk and primary roads, because the search itself had failed. Whether street-level imagery could fill the missing tags has not been tested.
+    <b>The score measures traffic danger, and only traffic danger.</b>
+    It was designed to combine what a car can do on the street, what a pedestrian is given, and
+    what the street is like to be in. Only the first could be measured in both cities, so
+    pavements, lighting, greenery and enclosure are left out rather than guessed at. A street
+    scoring 1.00 is one no car can threaten; it is not necessarily pleasant to walk down.
+   </div>
+   <div class="note warn">
+    <b>Pavements are not part of the score.</b>
+    The step that downloads the map data did not read OpenStreetMap's pavement information, so
+    there is nothing to score them on yet. An unrecorded pavement is unknown, not absent.
+   </div>
+   <div class="note warn">
+    <b>Speed bumps count mappers, not bumps.</b>
+    They are recorded beside 17.2% of Rotterdam's streets and 0.62% of Genova's (3,806 records
+    against 73). Rotterdam does not have 28 times more speed bumps; more people have mapped
+    them. These counts set a floor on what exists.
    </div>
    <div class="note">
-    <b>Only one indicator can be compared across cities.</b>
-    Only 1 of 9 indicators (<code>highway_class</code>, the road type) is recorded in a comparable way in both cities. Any difference between the two cities' index therefore reflects the mix of road types each contains, not conditions measured on the streets, so the cross-city comparison supports no claim. An earlier version put this down to an uncertainty interval of about 0.35 around every score; that was misleading, since most Rotterdam streets carry no interval at all, and it is withdrawn.
+    <b>Only one kind of information can be compared.</b>
+    Of nine, only the road type is recorded the same way in both cities. Any difference between
+    the two cities' scores therefore reflects the mix of road types each contains, not
+    conditions measured on the streets, so the street-level comparison supports no claim.
    </div>
   </div>
 
+  <div class="card" id="corrections">
+   <h2 class="card-title">Corrections to earlier versions</h2>
+   <ul class="corrections-list">
+    <li><b>Pavement count.</b> We said the <code>sidewalk</code> tag appears on 0 of Rotterdam's
+     68,464 road ways because Dutch mappers draw pavements as separate lines. That was wrong: our
+     download step never read the tag, in either city.</li>
+    <li><b>Size of the hills effect.</b> We described it as a 5.8-fold (12.6-fold
+     resident-weighted) disparity, with Genova's reach at 0.305. Both are withdrawn: the ratios
+     divide by a flat-distance gap close to zero that changes sign between time limits, and
+     0.305 came from an elevation model that left a fifth of Genova at sea level.</li>
+    <li><b>Street-imagery audit.</b> We reported that open street-level imagery covered 0% of
+     sampled untagged streets (at most 2.1% in Rotterdam and 2.4% in Genova) and blamed
+     car-mounted cameras. That result is withdrawn: the check used one location per photo
+     sequence rather than one per photo, and the speed-sign search had failed. Street imagery
+     has not been tested.</li>
+    <li><b>Why the cities cannot be compared.</b> We put this down to an uncertainty range of
+     about 0.35 around every score. That was misleading, since most Rotterdam streets have no
+     range at all. The real reason is that only road type is recorded the same way in both
+     cities.</li>
+   </ul>
+  </div>
+
   <div class="card">
-   <h2 class="card-title">Full Catchment Explorer</h2>
-   <p class="sub" style="margin-bottom: 8px;">Explore 100% of street segments in 5-minute school catchments:</p>
+   <h2 class="card-title">Every street, not just the flagged ones</h2>
+   <p class="sub" style="margin-bottom: 8px;">Larger maps (about 7.5 MB each) showing every scored street in the 5-minute areas around each school:</p>
    <div style="display:flex; gap:10px;">
-    <a href="rotterdam-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Rotterdam Full Network</a>
-    <a href="genova-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Genova Full Network</a>
+    <a href="rotterdam-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Rotterdam, all streets</a>
+    <a href="genova-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Genova, all streets</a>
    </div>
   </div>
 
   <div style="font-size: 11px; color: var(--slate-600); line-height: 1.6; padding-bottom: 12px;">
-   Method note: <a href="https://github.com/sanmoy63/school-streets/blob/main/notes/method_note.md">Methodological Reference</a> &middot;
+   How it was done, in full: <a href="https://github.com/sanmoy63/school-streets/blob/main/notes/method_note.md">method note</a> &middot;
    Repository: <a href="https://github.com/sanmoy63/school-streets">GitHub</a><br>
    &copy; OpenStreetMap contributors &middot; GHS-POP R2023A (JRC) &middot; Copernicus WorldDEM-30.
   </div>
@@ -474,14 +557,24 @@ _TEMPLATE = r"""<!DOCTYPE html>
  <section id="map-container" aria-label="Interactive map" tabindex="-1">
   <div id="map"></div>
 
+  <details class="map-key" open>
+   <summary>Map key</summary>
+   <ul>
+    <li><svg width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#7f1d1d" stroke-width="3"/></svg>Street that needs work</li>
+    <li><svg width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#c2410c" stroke-width="2.5" stroke-dasharray="6 4"/></svg>Street we cannot judge yet</li>
+    <li><svg width="28" height="14" aria-hidden="true"><rect x="1" y="1" width="26" height="12" rx="2" fill="#1d4ed8" fill-opacity="0.15" stroke="#1d4ed8"/></svg>10-minute walk (flat distance)</li>
+    <li><svg width="28" height="14" aria-hidden="true"><circle cx="8" cy="7" r="5.5" fill="#6a51a3" stroke="#0f172a"/><circle cx="21" cy="7" r="3" fill="#bcbddc" stroke="#0f172a"/></svg>School: darker = less reachable, bigger = more residents</li>
+   </ul>
+  </details>
+
   <div class="floating-controls">
-   <div class="filter-title" id="flt-title">Street Display Filter</div>
+   <div class="filter-title" id="flt-title">Show streets</div>
    <div class="filter-btns" id="flt-group" role="group" aria-labelledby="flt-title">
-    <button type="button" class="filter-chip active" id="flt-all" aria-pressed="true" onclick="setStreetFilter('all')">All (&le;0.20)</button>
-    <button type="button" class="filter-chip" id="flt-confirmed" aria-pressed="false" onclick="setStreetFilter('confirmed')">Confirmed Only</button>
-    <button type="button" class="filter-chip" id="flt-candidate" aria-pressed="false" onclick="setStreetFilter('candidate')">Data-Deficient</button>
+    <button type="button" class="filter-chip active" id="flt-all" aria-pressed="true" onclick="setStreetFilter('all')">All flagged</button>
+    <button type="button" class="filter-chip" id="flt-confirmed" aria-pressed="false" onclick="setStreetFilter('confirmed')">Needs work</button>
+    <button type="button" class="filter-chip" id="flt-candidate" aria-pressed="false" onclick="setStreetFilter('candidate')">Cannot judge yet</button>
    </div>
-   <div class="filter-title" id="bm-title">Basemap</div>
+   <div class="filter-title" id="bm-title">Background map</div>
    <div class="filter-btns" id="bm-group" role="group" aria-labelledby="bm-title">
     <button type="button" class="filter-chip active" id="bm-standard" aria-pressed="true" onclick="setBasemap('standard')">Standard</button>
     <button type="button" class="filter-chip" id="bm-light" aria-pressed="false" onclick="setBasemap('light')">Plain light</button>
@@ -494,18 +587,17 @@ _TEMPLATE = r"""<!DOCTYPE html>
     <div class="inspector-name" id="insp-name">Street Name</div>
     <div><span class="inspector-badge" id="insp-badge">Confirmed</span><button type="button" class="insp-close" aria-label="Close street details" onclick="hideInspector()">&times;</button></div>
    </div>
-   <div id="insp-class" style="color:var(--slate-600); margin-bottom:6px; font-size:11px;">highway_class</div>
+   <div id="insp-class" style="color:var(--slate-600); margin-bottom:6px; font-size:11px;">Road type</div>
    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:6px;">
-    <span style="font-size:11px; color:var(--slate-600);">SSR Readiness Index</span>
+    <span style="font-size:11px; color:var(--slate-600);">Traffic-danger score (higher is safer)</span>
     <span style="font-weight:800; font-family:'JetBrains Mono',monospace; font-size:14px;" id="insp-score">0.18</span>
    </div>
    <div class="interval-bar-bg">
     <div class="interval-bar-fill" id="insp-bar"></div>
    </div>
    <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--slate-600); font-family:'JetBrains Mono',monospace;">
-    <span>Lo: <b id="insp-lo">0.05</b></span>
-    <span>Width: &plusmn;<b id="insp-width">0.18</b></span>
-    <span>Hi: <b id="insp-hi">0.42</b></span>
+    <span>Lowest possible: <b id="insp-lo">0.05</b></span>
+    <span>Highest possible: <b id="insp-hi">0.42</b></span>
    </div>
    <div id="insp-desc" style="font-size:11px; color:var(--slate-600); margin-top:8px; border-top:1px solid var(--slate-100); padding-top:6px;">
     Definitive intervention target.
@@ -535,7 +627,7 @@ const PALETTES = {
   dark:  {confirmed: '#fca5a5', candidate: '#fdba74', shed: '#93c5fd', outline: '#ffffff'},
 };
 const LINE = {confirmed: {weight: 3, dashArray: null}, candidate: {weight: 2.2, dashArray: '6 4'}};
-const VERDICT = {confirmed: 'Confirmed Priority', candidate: 'Data-Deficient'};
+const VERDICT = {confirmed: 'Needs work', candidate: 'Cannot judge yet'};
 
 const RAMP = ['#4a1486','#6a51a3','#807dba','#9e9ac8','#bcbddc','#dadaeb'];
 function colour(v){
@@ -607,11 +699,10 @@ function showInspector(p){
   const card = document.getElementById('inspector');
   card.style.display = 'block';
   document.getElementById('insp-name').textContent = p.name || 'Unnamed Street';
-  document.getElementById('insp-class').textContent = 'Class: ' + (p.highway_class || 'street');
+  document.getElementById('insp-class').textContent = 'Road type: ' + (p.highway_class || 'street');
   document.getElementById('insp-score').textContent = fmt(p.ssr_index, 3);
   document.getElementById('insp-lo').textContent = fmt(p.ssr_index_lo, 3);
   document.getElementById('insp-hi').textContent = fmt(p.ssr_index_hi, 3);
-  document.getElementById('insp-width').textContent = fmt(p.ci_width ? p.ci_width/2 : 0, 3);
 
   const badge = document.getElementById('insp-badge');
   const bar = document.getElementById('insp-bar');
@@ -626,11 +717,11 @@ function showInspector(p){
   if(kind(p) === 'confirmed'){
     badge.style.background = '#fde8e8'; badge.style.color = '#991b1b';
     bar.style.background = PALETTES.light.confirmed;
-    desc.textContent = 'Upper bound ≤ 0.20: Structural infrastructure deficit regardless of missing speed/sidewalk data.';
+    desc.textContent = 'Scores 0.20 or below even in the best case for the missing data, so it needs work.';
   } else {
     badge.style.background = '#fef3c7'; badge.style.color = '#92400e';
     bar.style.background = PALETTES.light.candidate;
-    desc.textContent = 'Flagged by default penalties (missing tags). Requires field survey before civil works.';
+    desc.textContent = 'Flagged only because some data is missing. Check it on the ground before planning any work.';
   }
 }
 
@@ -690,6 +781,17 @@ function renderSchoolTable(){
     }).join('') + '</tbody></table>';
 }
 
+// The city summary is written from the city's own counts rather than stored
+// prose, so it cannot drift from the numbers beside it.
+function cityTakeaway(label, s){
+  const worst = s.worst_n || 0, cand = s.candidate_n || 0, conf = s.confirmed_n || 0;
+  if(!worst) return `No streets near schools in ${label} score 0.20 or below.`;
+  if(!cand) return `All ${worst.toLocaleString()} flagged streets in ${label} need work: each scores 0.20 or below even in the best case for any missing data.`;
+  const pct = Math.round(100 * cand / worst);
+  return `${cand.toLocaleString()} of the ${worst.toLocaleString()} flagged streets in ${label} (${pct}%) cannot be judged yet: ` +
+    `they are flagged because information such as speed limits is missing. The other ${conf.toLocaleString()} need work whatever that data turns out to be.`;
+}
+
 function show(key){
   currentCityKey = key;
   [shedsLayer, worstGeoJsonLayer, schoolsLayer].forEach(l => { if(l) map.removeLayer(l); });
@@ -698,7 +800,7 @@ function show(key){
   hideInspector();
 
   const c = DATA[key];
-  const label = c.label || c.name.split(',')[0];
+  const label = c.label || (key.charAt(0).toUpperCase() + key.slice(1));
 
   shedsLayer = L.geoJSON(c.walksheds, {
     style: {color: pal().shed, fillColor: pal().shed, weight: 0.8, fillOpacity: 0.06}
@@ -729,9 +831,9 @@ function show(key){
         `<div style="font-family:'Plus Jakarta Sans',sans-serif; padding:4px;">
           <div style="font-weight:800; font-size:13px; margin-bottom:4px;">${esc(p.name || 'Unnamed School')}</div>
           <div style="font-size:12px; color:#475569;">
-            Reachable Network Share: <b>${fmt(p.reach_ratio_10, 3)}</b><br>
-            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : 'n/a'}</b><br>
-            Population-Weighted Reach: <b>${fmt(p.pop_reach_ratio, 3)}</b>
+            10-minute reach (flat distance): <b>${fmt(p.reach_ratio_10, 3)}</b><br>
+            Residents within a 10-minute walk: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : 'n/a'}</b><br>
+            Reach counted in residents (with slope): <b>${fmt(p.pop_reach_ratio, 3)}</b>
           </div>
         </div>`
       );
@@ -744,16 +846,16 @@ function show(key){
   document.getElementById('stat-confirmed').textContent = (s.confirmed_n || 0).toLocaleString();
   document.getElementById('stat-candidate').textContent = (s.candidate_n || 0).toLocaleString();
 
-  document.getElementById('city-takeaway-title').innerHTML = esc(label) + ' &middot; Empirical Synthesis';
-  document.getElementById('city-takeaway-body').textContent = c.takeaway || '';
+  document.getElementById('city-takeaway-title').textContent = label + ' at a glance';
+  document.getElementById('city-takeaway-body').textContent = cityTakeaway(label, s);
 
   document.getElementById('stats-detail').innerHTML = `
-    <tr><th scope="row" class="k">Evaluated Schools</th><td class="v">${s.schools}</td></tr>
-    <tr><th scope="row" class="k">Street Segments Analyzed</th><td class="v">${s.segments.toLocaleString()}</td></tr>
-    <tr><th scope="row" class="k">Total Deficient (Score &le; 0.20)</th><td class="v">${s.worst_n.toLocaleString()}</td></tr>
-    <tr><th scope="row" class="k">Mean 10-min Reach (flat distance)</th><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
-    <tr><th scope="row" class="k">Median Reachable Residents</th><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : 'n/a'}</td></tr>
-    <tr><th scope="row" class="k">Population-Weighted Reach (with slope)</th><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
+    <tr><th scope="row" class="k">Schools</th><td class="v">${s.schools}</td></tr>
+    <tr><th scope="row" class="k">Street segments scored</th><td class="v">${s.segments.toLocaleString()}</td></tr>
+    <tr><th scope="row" class="k">Flagged streets (score 0.20 or below)</th><td class="v">${s.worst_n.toLocaleString()}</td></tr>
+    <tr><th scope="row" class="k">Average 10-minute reach (flat distance)</th><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
+    <tr><th scope="row" class="k">Median residents within a 10-minute walk</th><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : 'n/a'}</td></tr>
+    <tr><th scope="row" class="k">Reach counted in residents (with slope)</th><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
   `;
 
   const box = map.getContainer();
