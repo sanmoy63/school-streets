@@ -187,7 +187,8 @@ def _render(cities: dict) -> str:
     data = json.dumps(cities, separators=(",", ":"))
     first = next(iter(cities))
     buttons = "".join(
-        f'<button data-city="{k}"{" class=on" if k == first else ""}>{v["name"].split(",")[0]}</button>'
+        f'<button type="button" data-city="{k}" aria-pressed="{"true" if k == first else "false"}"'
+        f'{" class=on" if k == first else ""}>{v["name"].split(",")[0]}</button>'
         for k, v in cities.items()
     )
     return _TEMPLATE.replace("__DATA__", data).replace("__BUTTONS__", buttons).replace("__FIRST__", first)
@@ -210,9 +211,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
    --primary: #4a1486;
    --primary-light: #7048a6;
    --primary-subtle: #f3effa;
-   --confirmed-red: #b30000;
+   --confirmed-red: #991b1b;
    --confirmed-bg: #fdf2f2;
-   --candidate-amber: #d97706;
+   --candidate-amber: #9a3412;
    --candidate-bg: #fffbeb;
    --shed-blue: #2563eb;
    --slate-50: #f8fafc;
@@ -277,9 +278,9 @@ _TEMPLATE = r"""<!DOCTYPE html>
  table.stats-table td.v { text-align: right; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
 
  .legend-item { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; line-height: 1.4; margin-bottom: 10px; }
- .legend-icon { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; margin-top: 2px; }
+ .legend-swatch { flex-shrink: 0; margin-top: 3px; }
  .legend-bar { height: 8px; width: 100%; background: linear-gradient(90deg,#4a1486,#807dba,#dadaeb); border-radius: 2px; margin: 6px 0 2px; }
- .legend-ends { display: flex; justify-content: space-between; font-size: 10px; color: var(--slate-600); font-family: 'JetBrains Mono', monospace; }
+ .legend-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--slate-600); font-family: 'JetBrains Mono', monospace; }
 
  .note {
    font-size: 12px; line-height: 1.5; color: var(--slate-600);
@@ -311,13 +312,32 @@ _TEMPLATE = r"""<!DOCTYPE html>
  }
  .inspector-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
  .inspector-name { font-weight: 700; font-size: 13px; color: var(--slate-900); }
- .inspector-badge { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+ .inspector-badge { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
 
  .interval-bar-bg { height: 6px; background: var(--slate-200); border-radius: 3px; position: relative; margin: 8px 0; }
  .interval-bar-fill { position: absolute; height: 100%; border-radius: 3px; }
 
  a { color: var(--primary); text-decoration: none; font-weight: 600; }
  a:hover { text-decoration: underline; }
+
+ :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+ .leaflet-container:focus-visible { outline-offset: -3px; }
+ .skip-link { position: absolute; left: 12px; top: -60px; z-index: 2000; background: var(--slate-900); color: #fff; padding: 8px 12px; border-radius: 6px; }
+ .skip-link:focus { top: 12px; }
+ .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+ .fine { font-size: 11px; }
+ h2.card-title, h3.card-title { font-size: 12px; }
+ table.stats-table th.k { text-align: left; font-weight: 400; color: var(--slate-600); padding: 5px 0; border-bottom: 1px solid var(--slate-100); }
+ details { margin-top: 8px; }
+ details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--slate-800); padding: 4px 0; }
+ .table-scroll { max-height: 320px; overflow: auto; margin-top: 6px; border: 1px solid var(--slate-200); border-radius: 6px; }
+ table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+ table.data-table th, table.data-table td { padding: 5px 6px; border-bottom: 1px solid var(--slate-100); text-align: left; vertical-align: top; }
+ table.data-table thead th { position: sticky; top: 0; background: var(--slate-100); font-weight: 700; }
+ table.data-table tbody th { font-weight: 600; }
+ .insp-close { border: none; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; color: var(--slate-600); padding: 0 2px; margin-left: 8px; }
+ @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; } }
+ @media (forced-colors: active) { .filter-chip.active, .segmented-control button.on { outline: 2px solid CanvasText; } }
 
  @media(max-width: 860px) {
    #wrap { flex-direction: column; }
@@ -329,7 +349,8 @@ _TEMPLATE = r"""<!DOCTYPE html>
 </head>
 <body>
 <div id="wrap">
- <div id="side">
+ <a class="skip-link" href="#map-container">Skip to the map</a>
+ <main id="side">
   <div>
    <div class="badge">Open Urban Atlas &middot; Spatial Data Observability</div>
    <h1 style="margin-top: 8px;">School-Street Readiness Atlas</h1>
@@ -339,48 +360,48 @@ _TEMPLATE = r"""<!DOCTYPE html>
    </p>
   </div>
 
-  <div class="segmented-control" id="city-buttons">
+  <div class="segmented-control" id="city-buttons" role="group" aria-label="Choose a city">
    __BUTTONS__
   </div>
 
-  <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);">
-   <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</div>
+  <div class="card" style="background:var(--primary-subtle); border-color:rgba(74,20,134,0.15);" aria-live="polite">
+   <h2 style="font-size:11px; font-weight:800; text-transform:uppercase; color:var(--primary); margin-bottom:4px;" id="city-takeaway-title">City Synthesis</h2>
    <p style="font-size:12px; line-height:1.5; color:var(--slate-800);" id="city-takeaway-body">&mdash;</p>
   </div>
 
   <div class="card">
-   <div class="card-title">City Network Overview</div>
+   <h2 class="card-title">City Network Overview</h2>
    <div class="grid-stats">
     <div class="stat-box confirmed">
      <div class="stat-val" id="stat-confirmed">&mdash;</div>
-     <div class="stat-lbl">Confirmed Priorities<br><span style="font-size:9px;color:#991b1b;">Upper bound &le; 0.20</span></div>
+     <div class="stat-lbl">Confirmed Priorities<br><span class="fine" style="color:#991b1b;">Upper bound &le; 0.20</span></div>
     </div>
     <div class="stat-box candidate">
      <div class="stat-val" id="stat-candidate">&mdash;</div>
-     <div class="stat-lbl">Data-Deficient Candidates<br><span style="font-size:9px;color:#92400e;">Missing tags (audit needed)</span></div>
+     <div class="stat-lbl">Data-Deficient Candidates<br><span class="fine" style="color:#92400e;">Missing tags (audit needed)</span></div>
     </div>
    </div>
    <table class="stats-table" id="stats-detail"></table>
   </div>
 
   <div class="card">
-   <div class="card-title">Reading the Map</div>
+   <h2 class="card-title">Reading the Map</h2>
    <div class="legend-item">
-    <div class="legend-icon" style="background:#b30000;"></div>
+    <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#7f1d1d" stroke-width="3"/></svg>
     <div>
-     <b style="color:#b30000;">Confirmed Intervention Priorities</b><br>
+     <b style="color:#7f1d1d;">Confirmed Intervention Priorities</b> <span class="fine">(solid line)</span><br>
      <span class="sub">ssr_index_hi &le; 0.20 &mdash; definitive infrastructure deficit regardless of unobserved tags.</span>
     </div>
    </div>
    <div class="legend-item">
-    <div class="legend-icon" style="background:#d97706;"></div>
+    <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><line x1="1" y1="7" x2="27" y2="7" stroke="#c2410c" stroke-width="2.5" stroke-dasharray="6 4"/></svg>
     <div>
-     <b style="color:#d97706;">Data-Deficient Candidates</b><br>
+     <b style="color:#c2410c;">Data-Deficient Candidates</b> <span class="fine">(dashed line)</span><br>
      <span class="sub">index &le; 0.20 but hi &gt; 0.20 &mdash; flagged by default penalties; target for audit, not civil works.</span>
     </div>
    </div>
    <div class="legend-item">
-    <div class="legend-icon" style="background:#2563eb; opacity:0.6;"></div>
+    <svg class="legend-swatch" width="28" height="14" aria-hidden="true"><rect x="1" y="1" width="26" height="12" rx="2" fill="#1d4ed8" fill-opacity="0.15" stroke="#1d4ed8"/></svg>
     <div>
      <b>10-minute Network Walkshed</b><br>
      <span class="sub">Reachable catchment on flat network distance at a child's walking pace; slope is not applied on this map.</span>
@@ -397,8 +418,21 @@ _TEMPLATE = r"""<!DOCTYPE html>
    </div>
   </div>
 
+  <div class="card">
+   <h2 class="card-title">The map as tables</h2>
+   <p class="sub">Everything the map draws, listed so it can be read without the map. The street list follows the street filter on the map. &ldquo;Show&rdquo; moves the map to that place and opens its details.</p>
+   <details id="tbl-streets">
+    <summary>Flagged streets (<span id="tbl-streets-n">0</span>)</summary>
+    <div class="table-scroll" id="tbl-streets-body"></div>
+   </details>
+   <details id="tbl-schools">
+    <summary>Schools (<span id="tbl-schools-n">0</span>)</summary>
+    <div class="table-scroll" id="tbl-schools-body"></div>
+   </details>
+  </div>
+
   <div class="card" style="display:flex; flex-direction:column; gap:10px;">
-   <div class="card-title">Methodological Insights &amp; Audit Results</div>
+   <h2 class="card-title">Methodological Insights &amp; Audit Results</h2>
    <div class="note warn">
     <b>Pavements are not measured.</b>
     An earlier version of this note said the <code>sidewalk</code> tag appears on 0 of Rotterdam's 68,464 road ways because Dutch mappers draw pavements as separate lines. That count was wrong: the step that downloads OpenStreetMap data never read the tag, in either city, so the 0 describes our pipeline rather than the map. Pavements are left out of the index rather than scored as missing, and the tag will be counted again once it is read.
@@ -422,7 +456,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
   </div>
 
   <div class="card">
-   <div class="card-title">Full Catchment Explorer</div>
+   <h2 class="card-title">Full Catchment Explorer</h2>
    <p class="sub" style="margin-bottom: 8px;">Explore 100% of street segments in 5-minute school catchments:</p>
    <div style="display:flex; gap:10px;">
     <a href="rotterdam-full.html" class="filter-chip" style="display:block; text-align:center; flex:1;">Rotterdam Full Network</a>
@@ -435,24 +469,30 @@ _TEMPLATE = r"""<!DOCTYPE html>
    Repository: <a href="https://github.com/sanmoy63/school-streets">GitHub</a><br>
    &copy; OpenStreetMap contributors &middot; GHS-POP R2023A (JRC) &middot; Copernicus WorldDEM-30.
   </div>
- </div>
+ </main>
 
- <div id="map-container">
+ <section id="map-container" aria-label="Interactive map" tabindex="-1">
   <div id="map"></div>
 
   <div class="floating-controls">
-   <div class="filter-title">Street Display Filter</div>
-   <div class="filter-btns">
-    <button class="filter-chip active" id="flt-all" onclick="setStreetFilter('all')">All (&le;0.20)</button>
-    <button class="filter-chip" id="flt-confirmed" onclick="setStreetFilter('confirmed')">Confirmed Only</button>
-    <button class="filter-chip" id="flt-candidate" onclick="setStreetFilter('candidate')">Data-Deficient</button>
+   <div class="filter-title" id="flt-title">Street Display Filter</div>
+   <div class="filter-btns" id="flt-group" role="group" aria-labelledby="flt-title">
+    <button type="button" class="filter-chip active" id="flt-all" aria-pressed="true" onclick="setStreetFilter('all')">All (&le;0.20)</button>
+    <button type="button" class="filter-chip" id="flt-confirmed" aria-pressed="false" onclick="setStreetFilter('confirmed')">Confirmed Only</button>
+    <button type="button" class="filter-chip" id="flt-candidate" aria-pressed="false" onclick="setStreetFilter('candidate')">Data-Deficient</button>
+   </div>
+   <div class="filter-title" id="bm-title">Basemap</div>
+   <div class="filter-btns" id="bm-group" role="group" aria-labelledby="bm-title">
+    <button type="button" class="filter-chip active" id="bm-standard" aria-pressed="true" onclick="setBasemap('standard')">Standard</button>
+    <button type="button" class="filter-chip" id="bm-light" aria-pressed="false" onclick="setBasemap('light')">Plain light</button>
+    <button type="button" class="filter-chip" id="bm-dark" aria-pressed="false" onclick="setBasemap('dark')">Plain dark</button>
    </div>
   </div>
 
-  <div class="inspector-card" id="inspector">
+  <div class="inspector-card" id="inspector" role="region" aria-label="Street details" aria-live="polite">
    <div class="inspector-header">
     <div class="inspector-name" id="insp-name">Street Name</div>
-    <span class="inspector-badge" id="insp-badge">Confirmed</span>
+    <div><span class="inspector-badge" id="insp-badge">Confirmed</span><button type="button" class="insp-close" aria-label="Close street details" onclick="hideInspector()">&times;</button></div>
    </div>
    <div id="insp-class" style="color:var(--slate-600); margin-bottom:6px; font-size:11px;">highway_class</div>
    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-top:6px;">
@@ -462,7 +502,7 @@ _TEMPLATE = r"""<!DOCTYPE html>
    <div class="interval-bar-bg">
     <div class="interval-bar-fill" id="insp-bar"></div>
    </div>
-   <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--slate-600); font-family:'JetBrains Mono',monospace;">
+   <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--slate-600); font-family:'JetBrains Mono',monospace;">
     <span>Lo: <b id="insp-lo">0.05</b></span>
     <span>Width: &plusmn;<b id="insp-width">0.18</b></span>
     <span>Hi: <b id="insp-hi">0.42</b></span>
@@ -471,15 +511,31 @@ _TEMPLATE = r"""<!DOCTYPE html>
     Definitive intervention target.
    </div>
   </div>
- </div>
+ </section>
 </div>
 
 <script>
 const DATA = __DATA__;
 const map = L.map('map', {preferCanvas: true, zoomControl: true});
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+
+const BASEMAPS = {
+  standard: {url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', theme: 'light',
+             options: {maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'}},
+  light: {url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', theme: 'light',
+          options: {maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap contributors &copy; CARTO'}},
+  dark: {url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', theme: 'dark',
+         options: {maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap contributors &copy; CARTO'}},
+};
+// Every line colour holds at least 3:1 against the basemaps it is drawn on. The
+// two street verdicts also differ by line style, because no red/orange pair
+// stays distinguishable under red-green colour blindness while also clearing
+// 3:1 against the map.
+const PALETTES = {
+  light: {confirmed: '#7f1d1d', candidate: '#c2410c', shed: '#1d4ed8', outline: '#0f172a'},
+  dark:  {confirmed: '#fca5a5', candidate: '#fdba74', shed: '#93c5fd', outline: '#ffffff'},
+};
+const LINE = {confirmed: {weight: 3, dashArray: null}, candidate: {weight: 2.2, dashArray: '6 4'}};
+const VERDICT = {confirmed: 'Confirmed Priority', candidate: 'Data-Deficient'};
 
 const RAMP = ['#4a1486','#6a51a3','#807dba','#9e9ac8','#bcbddc','#dadaeb'];
 function colour(v){
@@ -490,31 +546,62 @@ function radius(p){
   if(p===null||p===undefined||isNaN(p)) return 4;
   return Math.max(3, Math.min(15, Math.sqrt(p)/14));
 }
-function fmt(v,d){ return (v===null||v===undefined||isNaN(v)) ? '&mdash;' : Number(v).toFixed(d); }
+function fmt(v,d){ return (v===null||v===undefined||isNaN(v)) ? 'n/a' : Number(v).toFixed(d); }
+function esc(s){
+  return String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g,
+    c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+}
 
+let baseLayer = null;
+let theme = 'light';
 let currentCityKey = null;
 let currentFilter = 'all';
 let worstGeoJsonLayer = null;
 let shedsLayer = null;
 let schoolsLayer = null;
+let streetLayers = [];
+let schoolLayers = [];
+
+function pal(){ return PALETTES[theme]; }
+function kind(p){ return p.status === 'confirmed' ? 'confirmed' : 'candidate'; }
+function streetStyle(p, hover){
+  const k = kind(p), line = LINE[k];
+  const shown = currentFilter === 'all' || currentFilter === k;
+  return {color: pal()[k], dashArray: line.dashArray, opacity: shown ? 0.95 : 0,
+          weight: shown ? line.weight + (hover ? 1.5 : 0) : 0};
+}
+function pressOnly(groupId, activeId){
+  document.querySelectorAll('#' + groupId + ' button').forEach(b => {
+    const on = b.id === activeId;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+function restyle(){
+  if(worstGeoJsonLayer) worstGeoJsonLayer.eachLayer(l => l.setStyle(streetStyle(l.feature.properties, false)));
+  if(shedsLayer) shedsLayer.setStyle({color: pal().shed, fillColor: pal().shed});
+  if(schoolsLayer) schoolsLayer.eachLayer(l => l.setStyle({color: pal().outline}));
+}
 
 function setStreetFilter(flt){
   currentFilter = flt;
-  document.querySelectorAll('.filter-btns .filter-chip').forEach(b => b.classList.remove('active'));
-  document.getElementById('flt-' + flt).classList.add('active');
-  if(worstGeoJsonLayer){
-    worstGeoJsonLayer.eachLayer(l => {
-      const status = l.feature.properties.status;
-      if(flt === 'all'){
-        l.setStyle({opacity: status === 'confirmed' ? 0.9 : 0.75, weight: status === 'confirmed' ? 2.5 : 1.8});
-      } else if(flt === 'confirmed'){
-        l.setStyle({opacity: status === 'confirmed' ? 0.95 : 0, weight: status === 'confirmed' ? 2.6 : 0});
-      } else if(flt === 'candidate'){
-        l.setStyle({opacity: status === 'candidate' ? 0.9 : 0, weight: status === 'candidate' ? 2.4 : 0});
-      }
-    });
-  }
+  pressOnly('flt-group', 'flt-' + flt);
+  restyle();
+  renderStreetTable();
 }
+
+function setBasemap(key){
+  const b = BASEMAPS[key];
+  if(baseLayer) map.removeLayer(baseLayer);
+  baseLayer = L.tileLayer(b.url, b.options).addTo(map);
+  baseLayer.bringToBack();
+  theme = b.theme;
+  pressOnly('bm-group', 'bm-' + key);
+  restyle();
+}
+
+function hideInspector(){ document.getElementById('inspector').style.display = 'none'; }
+document.addEventListener('keydown', e => { if(e.key === 'Escape') hideInspector(); });
 
 function showInspector(p){
   const card = document.getElementById('inspector');
@@ -535,53 +622,96 @@ function showInspector(p){
   bar.style.left = loPct + '%';
   bar.style.width = Math.max(2, (hiPct - loPct)) + '%';
 
-  if(p.status === 'confirmed'){
-    badge.textContent = 'Confirmed Priority';
+  badge.textContent = VERDICT[kind(p)];
+  if(kind(p) === 'confirmed'){
     badge.style.background = '#fde8e8'; badge.style.color = '#991b1b';
-    bar.style.background = '#b30000';
+    bar.style.background = PALETTES.light.confirmed;
     desc.textContent = 'Upper bound ≤ 0.20: Structural infrastructure deficit regardless of missing speed/sidewalk data.';
   } else {
-    badge.textContent = 'Data-Deficient';
     badge.style.background = '#fef3c7'; badge.style.color = '#92400e';
-    bar.style.background = '#d97706';
+    bar.style.background = PALETTES.light.candidate;
     desc.textContent = 'Flagged by default penalties (missing tags). Requires field survey before civil works.';
   }
 }
 
+// Map jumps are never animated. A move triggered from the tables or the city
+// buttons should land at once rather than depend on an animation finishing,
+// and it respects reduced-motion preferences without a special case.
+function showStreet(i){
+  const s = streetLayers[i];
+  if(!s) return;
+  if(currentFilter !== 'all' && currentFilter !== kind(s.feature.properties)) setStreetFilter('all');
+  map.fitBounds(s.layer.getBounds(), {maxZoom: 17, animate: false});
+  s.layer.setStyle(streetStyle(s.feature.properties, true));
+  showInspector(s.feature.properties);
+}
+
+function showSchool(i){
+  const s = schoolLayers[i];
+  if(!s) return;
+  map.setView(s.layer.getLatLng(), 16, {animate: false});
+  s.layer.openPopup();
+}
+
+function renderStreetTable(){
+  const box = document.getElementById('tbl-streets-body');
+  const rows = streetLayers.map((s, i) => ({i: i, p: s.feature.properties}))
+    .filter(r => currentFilter === 'all' || kind(r.p) === currentFilter)
+    .sort((a, b) => (a.p.ssr_index_hi ?? 1) - (b.p.ssr_index_hi ?? 1));
+  document.getElementById('tbl-streets-n').textContent = rows.length.toLocaleString();
+  if(!document.getElementById('tbl-streets').open){ box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<table class="data-table"><caption class="visually-hidden">Flagged streets, lowest possible score first</caption>' +
+    '<thead><tr><th scope="col">Street</th><th scope="col">Road type</th><th scope="col">Score range</th>' +
+    '<th scope="col">Verdict</th><th scope="col"><span class="visually-hidden">On the map</span></th></tr></thead><tbody>' +
+    rows.map(r => {
+      const name = esc(r.p.name || 'Unnamed street');
+      return `<tr><th scope="row">${name}</th><td>${esc(r.p.highway_class || '')}</td>` +
+        `<td>${fmt(r.p.ssr_index_lo, 2)}&ndash;${fmt(r.p.ssr_index_hi, 2)}</td><td>${VERDICT[kind(r.p)]}</td>` +
+        `<td><button type="button" class="filter-chip" onclick="showStreet(${r.i})">Show<span class="visually-hidden"> ${name} on the map</span></button></td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+
+function renderSchoolTable(){
+  const box = document.getElementById('tbl-schools-body');
+  const rows = schoolLayers.map((s, i) => ({i: i, p: s.feature.properties}))
+    .sort((a, b) => (a.p.reach_ratio_10 ?? 2) - (b.p.reach_ratio_10 ?? 2));
+  document.getElementById('tbl-schools-n').textContent = rows.length.toLocaleString();
+  if(!document.getElementById('tbl-schools').open){ box.innerHTML = ''; return; }
+  box.innerHTML =
+    '<table class="data-table"><caption class="visually-hidden">Schools, lowest 10-minute reach first</caption>' +
+    '<thead><tr><th scope="col">School</th><th scope="col">10-min reach (flat distance)</th><th scope="col">Residents within reach</th>' +
+    '<th scope="col"><span class="visually-hidden">On the map</span></th></tr></thead><tbody>' +
+    rows.map(r => {
+      const name = esc(r.p.name || 'Unnamed school');
+      const people = r.p.pop_reachable ? Math.round(r.p.pop_reachable).toLocaleString() : 'n/a';
+      return `<tr><th scope="row">${name}</th><td>${fmt(r.p.reach_ratio_10, 3)}</td><td>${people}</td>` +
+        `<td><button type="button" class="filter-chip" onclick="showSchool(${r.i})">Show<span class="visually-hidden"> ${name} on the map</span></button></td></tr>`;
+    }).join('') + '</tbody></table>';
+}
+
 function show(key){
   currentCityKey = key;
-  if(shedsLayer) map.removeLayer(shedsLayer);
-  if(worstGeoJsonLayer) map.removeLayer(worstGeoJsonLayer);
-  if(schoolsLayer) map.removeLayer(schoolsLayer);
+  [shedsLayer, worstGeoJsonLayer, schoolsLayer].forEach(l => { if(l) map.removeLayer(l); });
+  streetLayers = [];
+  schoolLayers = [];
+  hideInspector();
 
   const c = DATA[key];
+  const label = c.label || c.name.split(',')[0];
 
   shedsLayer = L.geoJSON(c.walksheds, {
-    style: {color: '#2563eb', weight: 0.6, fillOpacity: 0.05}
+    style: {color: pal().shed, fillColor: pal().shed, weight: 0.8, fillOpacity: 0.06}
   }).addTo(map);
 
   worstGeoJsonLayer = L.geoJSON(c.worst, {
-    style: f => {
-      const isConf = f.properties.status === 'confirmed';
-      return {
-        color: isConf ? '#b30000' : '#d97706',
-        weight: isConf ? 2.5 : 1.8,
-        opacity: isConf ? 0.9 : 0.75,
-      };
-    },
+    style: f => streetStyle(f.properties, false),
     onEachFeature: (f, l) => {
+      streetLayers.push({feature: f, layer: l});
       l.on({
-        mouseover: e => {
-          showInspector(f.properties);
-          l.setStyle({weight: 4});
-        },
-        mouseout: e => {
-          const isConf = f.properties.status === 'confirmed';
-          l.setStyle({weight: isConf ? 2.5 : 1.8});
-        },
-        click: e => {
-          showInspector(f.properties);
-        }
+        mouseover: () => { showInspector(f.properties); l.setStyle(streetStyle(f.properties, true)); },
+        mouseout: () => l.setStyle(streetStyle(f.properties, false)),
+        click: () => showInspector(f.properties),
       });
     }
   }).addTo(map);
@@ -590,16 +720,17 @@ function show(key){
     pointToLayer: (f, ll) => L.circleMarker(ll, {
       radius: radius(f.properties.pop_reachable),
       fillColor: colour(f.properties.reach_ratio_10),
-      color: '#0f172a', weight: 1, fillOpacity: 0.92
+      color: pal().outline, weight: 1, fillOpacity: 0.92
     }),
     onEachFeature: (f, l) => {
+      schoolLayers.push({feature: f, layer: l});
       const p = f.properties;
       l.bindPopup(
         `<div style="font-family:'Plus Jakarta Sans',sans-serif; padding:4px;">
-          <div style="font-weight:800; font-size:13px; margin-bottom:4px;">${p.name || 'Unnamed School'}</div>
+          <div style="font-weight:800; font-size:13px; margin-bottom:4px;">${esc(p.name || 'Unnamed School')}</div>
           <div style="font-size:12px; color:#475569;">
             Reachable Network Share: <b>${fmt(p.reach_ratio_10, 3)}</b><br>
-            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : '&mdash;'}</b><br>
+            10-min Walkable Population: <b>${p.pop_reachable ? Math.round(p.pop_reachable).toLocaleString() : 'n/a'}</b><br>
             Population-Weighted Reach: <b>${fmt(p.pop_reach_ratio, 3)}</b>
           </div>
         </div>`
@@ -607,35 +738,49 @@ function show(key){
     }
   }).addTo(map);
 
-  map.setView(c.centre, 12);
+  map.setView(c.centre, 12, {animate: false});
 
   const s = c.stats;
   document.getElementById('stat-confirmed').textContent = (s.confirmed_n || 0).toLocaleString();
   document.getElementById('stat-candidate').textContent = (s.candidate_n || 0).toLocaleString();
 
-  document.getElementById('city-takeaway-title').innerHTML = c.name.split(',')[0] + ' &middot; Empirical Synthesis';
+  document.getElementById('city-takeaway-title').innerHTML = esc(label) + ' &middot; Empirical Synthesis';
   document.getElementById('city-takeaway-body').textContent = c.takeaway || '';
 
   document.getElementById('stats-detail').innerHTML = `
-    <tr><td class="k">Evaluated Schools</td><td class="v">${s.schools}</td></tr>
-    <tr><td class="k">Street Segments Analyzed</td><td class="v">${s.segments.toLocaleString()}</td></tr>
-    <tr><td class="k">Total Deficient (Score &le; 0.20)</td><td class="v">${s.worst_n.toLocaleString()}</td></tr>
-    <tr><td class="k">Mean 10-min Reach (flat distance)</td><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
-    <tr><td class="k">Median Reachable Residents</td><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : '&mdash;'}</td></tr>
-    <tr><td class="k">Population-Weighted Reach (with slope)</td><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
+    <tr><th scope="row" class="k">Evaluated Schools</th><td class="v">${s.schools}</td></tr>
+    <tr><th scope="row" class="k">Street Segments Analyzed</th><td class="v">${s.segments.toLocaleString()}</td></tr>
+    <tr><th scope="row" class="k">Total Deficient (Score &le; 0.20)</th><td class="v">${s.worst_n.toLocaleString()}</td></tr>
+    <tr><th scope="row" class="k">Mean 10-min Reach (flat distance)</th><td class="v">${fmt(s.reach_mean, 3)}</td></tr>
+    <tr><th scope="row" class="k">Median Reachable Residents</th><td class="v">${s.pop_median ? s.pop_median.toLocaleString() : 'n/a'}</td></tr>
+    <tr><th scope="row" class="k">Population-Weighted Reach (with slope)</th><td class="v">${fmt(s.pop_reach_mean, 3)}</td></tr>
   `;
 
-  setStreetFilter(currentFilter);
+  const box = map.getContainer();
+  box.setAttribute('role', 'region');
+  box.setAttribute('aria-label',
+    `Map of ${label}: ${s.worst_n.toLocaleString()} flagged streets and ${s.schools} schools. ` +
+    'The same information is listed under The map as tables.');
+
+  renderStreetTable();
+  renderSchoolTable();
 }
 
 document.querySelectorAll('#city-buttons button').forEach(b => {
   b.onclick = () => {
-    document.querySelectorAll('#city-buttons button').forEach(x => x.classList.remove('on'));
+    document.querySelectorAll('#city-buttons button').forEach(x => {
+      x.classList.remove('on');
+      x.setAttribute('aria-pressed', 'false');
+    });
     b.classList.add('on');
+    b.setAttribute('aria-pressed', 'true');
     show(b.dataset.city);
   };
 });
+document.getElementById('tbl-streets').addEventListener('toggle', renderStreetTable);
+document.getElementById('tbl-schools').addEventListener('toggle', renderSchoolTable);
 
+setBasemap('standard');
 show('__FIRST__');
 </script>
 </body>
